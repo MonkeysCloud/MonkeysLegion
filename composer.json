@@ -19,7 +19,8 @@
     "monkeyscloud/monkeyslegion-cli": "^1.0@dev",
     "monkeyscloud/monkeyslegion-telemetry": "^1.0@dev",
     "monkeyscloud/monkeyslegion-events": "^1.0@dev",
-    "monkeyscloud/monkeyslegion-validation": "^1.0@dev"
+    "monkeyscloud/monkeyslegion-validation": "^1.0@dev",
+    "monkeyscloud/monkeyslegion-query": "^1.0@dev"
   },
   "autoload": {
     "psr-4": { "MonkeysLegion\\": "src/" }
