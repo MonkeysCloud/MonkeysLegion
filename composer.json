@@ -22,7 +22,8 @@
     "monkeyscloud/monkeyslegion-validation": "^1.0@dev",
     "monkeyscloud/monkeyslegion-query": "^1.0@dev",
     "monkeyscloud/monkeyslegion-i18n": "^1.0@dev",
-    "monkeyscloud/monkeyslegion-auth": "^1.0@dev"
+    "monkeyscloud/monkeyslegion-auth": "^1.0@dev",
+    "monolog/monolog": "^3.9"
   },
   "autoload": {
     "psr-4": { "MonkeysLegion\\": "src/" }
@@ -30,6 +31,11 @@
   "extra": {
     "branch-alias": {
       "dev-main": "1.0-dev"
+    },
+    "monkeyslegion": {
+      "providers": [
+        "MonkeysLegion\\Config\\AppConfig"
+      ]
     }
   }
 }
