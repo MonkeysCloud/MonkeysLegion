@@ -337,9 +337,22 @@ final class AppConfig
             /* ----------------------------------------------------------------- */
             /* Validation layer                                                  */
             /* ----------------------------------------------------------------- */
-            ValidatorInterface::class => fn() => new AttributeValidator(),
+            ValidatorInterface::class => fn() => new class implements ValidatorInterface {
+                private AttributeValidator $impl;
 
-            DtoBinder::class          => fn($c) => new DtoBinder(
+                public function __construct()
+                {
+                    $this->impl = new AttributeValidator();
+                }
+
+                // delegate every interface method to the real validator
+                public function validate(object $dto): array
+                {
+                    return $this->impl->validate($dto);
+                }
+            },
+
+            DtoBinder::class => fn($c) => new DtoBinder(
                 $c->get(ValidatorInterface::class)
             ),
 
