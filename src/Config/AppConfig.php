@@ -7,11 +7,11 @@ use App\Repository\UserRepository;
 use Laminas\Diactoros\ServerRequestFactory;
 
 use MonkeysLegion\Auth\AuthService;
+use MonkeysLegion\Auth\AuthService\AuthorizationService;
 use MonkeysLegion\Auth\JwtService;
 use MonkeysLegion\Auth\Middleware\AuthorizationMiddleware;
 use MonkeysLegion\Auth\Middleware\JwtAuthMiddleware;
 use MonkeysLegion\Auth\PasswordHasher;
-use MonkeysLegion\AuthService\AuthorizationService;
 use MonkeysLegion\Cli\Support\CommandFinder;
 use MonkeysLegion\DI\ContainerBuilder;
 use MonkeysLegion\Query\QueryBuilder;
