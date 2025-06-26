@@ -1,87 +1,83 @@
 <?php
 namespace MonkeysLegion\Framework;
 
-use MonkeysLegion\DI\ContainerBuilder;
 use MonkeysLegion\Config\AppConfig;
 use MonkeysLegion\Core\Routing\RouteLoader;
+use MonkeysLegion\DI\ContainerBuilder;
 use MonkeysLegion\Http\CoreRequestHandler;
 use MonkeysLegion\Http\RouteRequestHandler;
 use MonkeysLegion\Http\Emitter\SapiEmitter;
 use MonkeysLegion\Http\Message\ServerRequest;
 use MonkeysLegion\Mlc\Config as MlcConfig;
 use MonkeysLegion\Router\Router;
+use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
+use Psr\Http\Message\ResponseInterface;
 
 final class HttpBootstrap
 {
-    /**
-     * Build your container (framework defaults + app overrides).
-     */
-    public static function buildContainer(string $projectRoot)
+    /** Build container with framework defaults + project overrides */
+    public static function buildContainer(string $root): ContainerInterface
     {
-        $builder = new ContainerBuilder();
-
-        // 1) framework defaults
-        $builder->addDefinitions(new AppConfig()());
-
-        // 2) app‐specific overrides
-        $override = $projectRoot . '/config/app.php';
-        if (is_file($override)) {
-            $builder->addDefinitions(require $override);
+        $b = new ContainerBuilder();
+        $b->addDefinitions((new AppConfig())());                 // framework
+        if (is_file($root . '/config/app.php')) {                // project
+            $b->addDefinitions(require $root . '/config/app.php');
         }
-
-        return $builder->build();
+        return $b->build();
     }
 
     /**
-     * Run the entire HTTP flow, optionally letting the app override
-     * any part via a callback.
+     * Run the whole HTTP flow.
      *
-     * @param string $projectRoot
-     * @param callable|null $customizer
-     *        Signature: function(
-     *           \Psr\Container\ContainerInterface $container,
-     *           ServerRequest                        $request,
-     *           Router                               $router,
-     *           ResponseFactoryInterface             $responseFactory
-     *        ): \Psr\Http\Message\ResponseInterface
+     * @param string        $root        project root (usually ML_BASE_PATH)
+     * @param null|callable $customizer  optional closure to customise the run
+     *                                   function (
+     *                                   ContainerInterface $c,
+     *                                   ServerRequest      $req,
+     *                                   Router             $router,
+     *                                   ResponseFactoryInterface $rf
+     *                                   ): ResponseInterface
      */
-    public static function run(string $projectRoot, ?callable $customizer = null): void
+    public static function run(string $root, ?callable $customizer = null): void
     {
-        // build & expose
-        $container = self::buildContainer($projectRoot);
-        define('ML_CONTAINER', $container);
+        $c = self::buildContainer($root);
+        define('ML_CONTAINER', $c);
 
-        // auto-discover your controllers
-        $container->get(RouteLoader::class)
-            ->loadControllers();
+        // auto-discover controllers
+        $c->get(RouteLoader::class)->loadControllers();
 
-        // create the PSR-7 request
-        $request = ServerRequest::fromGlobals();
+        // build request & grab router / factory
+        $req  = ServerRequest::fromGlobals();
+        $rt   = $c->get(Router::class);
+        $rf   = $c->get(ResponseFactoryInterface::class);
 
-        // grab router & response factory (in case the app needs them)
-        $router          = $container->get(Router::class);
-        $responseFactory = $container->get(ResponseFactoryInterface::class);
+        // delegate to app-supplied closure or use default pipeline
+        $res = $customizer
+            ? $customizer($c, $req, $rt, $rf)
+            : self::defaultPipeline($c, $req, $rf);
 
-        // if the app passed in a custom runner, delegate to it
-        if ($customizer) {
-            $response = $customizer($container, $request, $router, $responseFactory);
-        } else {
-            // otherwise use the standard pipeline
-            $routeHandler = $container->get(RouteRequestHandler::class);
-            $core         = new CoreRequestHandler($routeHandler, $responseFactory);
+        // emit
+        $c->get(SapiEmitter::class)->emit($res);
+    }
 
-            /** @var MlcConfig $mlc */
-            $mlc = $container->get(MlcConfig::class);
-            foreach ($mlc->get('middleware.global', []) as $id) {
-                $core->pipe($container->get($id));
-            }
+    /** Default PSR-15 pipeline driven by middleware.global */
+    private static function defaultPipeline(
+        ContainerInterface      $c,
+        ServerRequest           $req,
+        ResponseFactoryInterface $rf
+    ): ResponseInterface {
+        $core = new CoreRequestHandler(
+            $c->get(RouteRequestHandler::class),
+            $rf
+        );
 
-            $response = $core->handle($request);
+        /** @var MlcConfig $mlc */
+        $mlc = $c->get(MlcConfig::class);
+        foreach ($mlc->get('middleware.global', []) as $id) {
+            $core->pipe($c->get($id));
         }
 
-        // emit back to the client
-        $container->get(SapiEmitter::class)
-            ->emit($response);
+        return $core->handle($req);
     }
 }
