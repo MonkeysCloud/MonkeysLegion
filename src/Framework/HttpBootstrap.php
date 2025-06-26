@@ -63,9 +63,9 @@ final class HttpBootstrap
 
     /** Default PSR-15 pipeline driven by middleware.global */
     private static function defaultPipeline(
-        ContainerInterface      $c,
-        ServerRequest           $req,
-        ResponseFactoryInterface $rf
+        ContainerInterface        $c,
+        ServerRequest             $req,
+        ResponseFactoryInterface  $rf
     ): ResponseInterface {
         $core = new CoreRequestHandler(
             $c->get(RouteRequestHandler::class),
@@ -74,8 +74,11 @@ final class HttpBootstrap
 
         /** @var MlcConfig $mlc */
         $mlc = $c->get(MlcConfig::class);
+
         foreach ($mlc->get('middleware.global', []) as $id) {
-            $core->pipe($c->get($id));
+            $core->pipe(
+                $c->get(ltrim($id, '\\'))
+            );
         }
 
         return $core->handle($req);
