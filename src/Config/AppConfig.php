@@ -324,16 +324,24 @@ final class AppConfig
                 $c->get(ResponseFactoryInterface::class)
             ),
 
-            AuthorizationService::class => fn() => tap(
-                new AuthorizationService(),
-                function ($svc) {
-                    // Map entities → policies once you have them
-                    // $svc->registerPolicy(App\Entity\Post::class, App\Policy\PostPolicy::class);
-                }
-            ),
+            /**
+             * Concrete AuthorizationService instance.
+             * Register policies here if/when you create them.
+             */
+            AuthorizationService::class => function () {
+                $svc = new AuthorizationService();
+
+                // example policy registrations — comment-out until you have them
+                // $svc->registerPolicy(App\Entity\Post::class, App\Policy\PostPolicy::class);
+                // $svc->registerPolicy(App\Entity\User::class, App\Policy\UserPolicy::class);
+
+                return $svc;
+            },
 
             AuthorizationMiddleware::class => fn($c) =>
-            new AuthorizationMiddleware($c->get(AuthorizationService::class)),
+            new AuthorizationMiddleware(
+                $c->get(AuthorizationService::class)
+            ),
 
             /* ----------------------------------------------------------------- */
             /* Validation layer                                                  */
