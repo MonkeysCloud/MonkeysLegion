@@ -334,28 +334,12 @@ final class AppConfig
                 $c->get(AuthorizationService::class)
             ),
 
-            /* -----------------------------------------------------------------
-             | Validation layer
-             * ---------------------------------------------------------------- */
+            /* ----------------------------------------------------------------- */
+            /* Validation layer                                                  */
+            /* ----------------------------------------------------------------- */
+            ValidatorInterface::class => fn() => new AttributeValidator(),
 
-            /**
-             * Tiny adapter: extends the real validator **and** implements the
-             * missing interface so PHP’s type-check passes.
-             */
-            ValidatorInterface::class => fn() => new class implements ValidatorInterface {
-                private AttributeValidator $impl;
-                public function __construct()
-                {
-                    $this->impl = new AttributeValidator();
-                }
-                public function validate(object $dto): array
-                {
-                    // delegate everything to the real validator
-                    return $this->impl->validate($dto);
-                }
-            },
-
-            DtoBinder::class => fn($c) => new DtoBinder(
+            DtoBinder::class          => fn($c) => new DtoBinder(
                 $c->get(ValidatorInterface::class)
             ),
 
