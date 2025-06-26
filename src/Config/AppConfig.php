@@ -13,6 +13,7 @@ use MonkeysLegion\Auth\Middleware\JwtAuthMiddleware;
 use MonkeysLegion\Auth\PasswordHasher;
 use MonkeysLegion\AuthService\AuthorizationService;
 use MonkeysLegion\Cli\Support\CommandFinder;
+use MonkeysLegion\DI\ContainerBuilder;
 use MonkeysLegion\Query\QueryBuilder;
 use MonkeysLegion\Repository\RepositoryFactory;
 use Monolog\Logger;
@@ -400,5 +401,14 @@ final class AppConfig
                 CommandFinder::all()
             ),
         ];
+    }
+
+    /**
+     * Called by your bootstrap to add framework defaults.
+     */
+    public static function register(ContainerBuilder $builder): void
+    {
+        // invoke the instance and feed its array into the builder
+        $builder->addDefinitions(new self()());
     }
 }
