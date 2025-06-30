@@ -1,4 +1,5 @@
 <?php
+
 namespace MonkeysLegion\Framework;
 
 use MonkeysLegion\Config\AppConfig;
@@ -24,7 +25,18 @@ final class HttpBootstrap
         if (is_file($root . '/config/app.php')) {                // project
             $b->addDefinitions(require $root . '/config/app.php');
         }
-        return $b->build();
+
+        // Register mail service provider
+        \MonkeysLegion\Mail\Provider\MailServiceProvider::register($b);
+
+        $container = $b->build();
+
+        // Set logger after container is built
+        \MonkeysLegion\Mail\Provider\MailServiceProvider::setLogger(
+            $container->get(\Psr\Log\LoggerInterface::class)
+        );
+
+        return $container;
     }
 
     /**
