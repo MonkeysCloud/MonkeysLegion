@@ -1,4 +1,5 @@
 <?php
+
 declare(strict_types=1);
 
 namespace MonkeysLegion\Config;
@@ -37,13 +38,15 @@ use MonkeysLegion\Core\Routing\RouteLoader;
 use MonkeysLegion\Database\MySQL\Connection;
 use MonkeysLegion\Entity\Scanner\EntityScanner;
 
-use MonkeysLegion\Http\{CoreRequestHandler,
+use MonkeysLegion\Http\{
+    CoreRequestHandler,
     RouteRequestHandler,
     Middleware\AuthMiddleware,
     Middleware\LoggingMiddleware,
     Middleware\RateLimitMiddleware,
     MiddlewareDispatcher,
-    Emitter\SapiEmitter};
+    Emitter\SapiEmitter
+};
 
 use MonkeysLegion\Migration\MigrationGenerator;
 use MonkeysLegion\Mlc\{
@@ -83,7 +86,7 @@ use MonkeysLegion\Http\OpenApi\{
     OpenApiGenerator,
     OpenApiMiddleware
 };
-
+use MonkeysLegion\Mail\Provider\MailServiceProvider;
 use MonkeysLegion\Validation\ValidatorInterface;
 use MonkeysLegion\Validation\AttributeValidator;
 use MonkeysLegion\Validation\DtoBinder;
@@ -102,7 +105,7 @@ final class AppConfig
             | PSR-3 Logger (Monolog)
             |--------------------------------------------------------------------------
             */
-            LoggerInterface::class => function() {
+            LoggerInterface::class => function () {
                 $log = new Logger('app');
                 $log->pushHandler(
                     new StreamHandler(
@@ -151,8 +154,8 @@ final class AppConfig
             /* ———————————————————————————————————————————————
             *  Event dispatcher (PSR-14)
             * ——————————————————————————————————————————————— */
-            ListenerProvider::class        => fn () => new ListenerProvider(),
-            EventDispatcherInterface::class => fn ($c) => new EventDispatcher(
+            ListenerProvider::class        => fn() => new ListenerProvider(),
+            EventDispatcherInterface::class => fn($c) => new EventDispatcher(
                 $c->get(ListenerProvider::class)
             ),
 
@@ -189,7 +192,7 @@ final class AppConfig
 
                 // 2 turn "config/foo.mlc" into just "foo"
                 $names = array_map(
-                    static fn (string $path) => pathinfo($path, PATHINFO_FILENAME),
+                    static fn(string $path) => pathinfo($path, PATHINFO_FILENAME),
                     $files
                 );
 
@@ -216,7 +219,7 @@ final class AppConfig
             ),
 
             Translator::class => fn($c) => new Translator(
-            // fetch locale from env or request (here default 'en')
+                // fetch locale from env or request (here default 'en')
                 $c->get(MlcConfig::class)->get('app.locale', 'en'),
                 base_path('resources/lang'),
                 'en'
@@ -277,18 +280,18 @@ final class AppConfig
             /* Rate-limit middleware                                              */
             /* ----------------------------------------------------------------- */
             RateLimitMiddleware::class =>
-                fn($c) => new RateLimitMiddleware(
-                    $c->get(ResponseFactoryInterface::class),
-                    $c->get(CacheInterface::class),
-                    5000,   // limit
-                    60     // window (seconds)
-                ),
+            fn($c) => new RateLimitMiddleware(
+                $c->get(ResponseFactoryInterface::class),
+                $c->get(CacheInterface::class),
+                5000,   // limit
+                60     // window (seconds)
+            ),
 
             /* ----------------------------------------------------------------- */
             /* Authentication middleware                                          */
             /* ----------------------------------------------------------------- */
             AuthMiddleware::class => fn($c) => new AuthMiddleware(
-            // 1) Response factory
+                // 1) Response factory
                 $c->get(ResponseFactoryInterface::class),
 
                 // 2) Realm name (stays the same)
@@ -306,7 +309,7 @@ final class AppConfig
             /* Simple logging middleware                                          */
             /* ----------------------------------------------------------------- */
             LoggingMiddleware::class    => fn() => new LoggingMiddleware(
-            // you can inject LoggerInterface here if your middleware takes it
+                // you can inject LoggerInterface here if your middleware takes it
             ),
 
             PasswordHasher::class => fn() => new PasswordHasher(),
