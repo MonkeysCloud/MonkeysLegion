@@ -297,9 +297,9 @@ final class AppConfig
                 // 3) Your token from app.mlc
                 (string) $c->get(MlcConfig::class)->get('auth.token'),
 
-                // 4) *All* public paths from app.mlc (fallback to ['/'] if key missing)
+                // 4) *All* public paths from app.mlc
                 $c->get(MlcConfig::class)
-                    ->get('auth.public_paths', ['/']),
+                    ->get('auth.public_paths', []),
             ),
 
             /* ----------------------------------------------------------------- */
