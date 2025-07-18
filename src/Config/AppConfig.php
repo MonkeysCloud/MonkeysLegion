@@ -14,6 +14,7 @@ use MonkeysLegion\Auth\Middleware\AuthorizationMiddleware;
 use MonkeysLegion\Auth\Middleware\JwtAuthMiddleware;
 use MonkeysLegion\Auth\PasswordHasher;
 use MonkeysLegion\Cli\Support\CommandFinder;
+use MonkeysLegion\Core\Middleware\CorsMiddleware;
 use MonkeysLegion\DI\ContainerBuilder;
 use MonkeysLegion\Query\QueryBuilder;
 use MonkeysLegion\Repository\RepositoryFactory;
@@ -277,6 +278,19 @@ final class AppConfig
             ),
 
             /* ----------------------------------------------------------------- */
+            /* CORS middleware                                                   */
+            /* ----------------------------------------------------------------- */
+            CorsMiddleware::class => fn($c) => new CorsMiddleware(
+                allowOrigin:      $c->get(MlcConfig::class)->get('cors.allow_origin', '*'),
+                allowMethods:     $c->get(MlcConfig::class)->get('cors.allow_methods', ['GET','POST','OPTIONS']),
+                allowHeaders:     $c->get(MlcConfig::class)->get('cors.allow_headers', ['Content-Type','Authorization']),
+                exposeHeaders:    $c->get(MlcConfig::class)->get('cors.expose_headers', null),
+                allowCredentials: (bool)$c->get(MlcConfig::class)->get('cors.allow_credentials', false),
+                maxAge:           (int)$c->get(MlcConfig::class)->get('cors.max_age', 0),
+                responseFactory:  $c->get(ResponseFactoryInterface::class)
+            ),
+
+            /* ----------------------------------------------------------------- */
             /* Rate-limit middleware                                              */
             /* ----------------------------------------------------------------- */
             RateLimitMiddleware::class =>
@@ -291,18 +305,13 @@ final class AppConfig
             /* Authentication middleware                                          */
             /* ----------------------------------------------------------------- */
             AuthMiddleware::class => fn($c) => new AuthMiddleware(
-                // 1) Response factory
                 $c->get(ResponseFactoryInterface::class),
-
-                // 2) Realm name (stays the same)
+                // realm FIRST (matches vendor order)
                 'Protected',
-
-                // 3) Your token from app.mlc
-                (string) $c->get(MlcConfig::class)->get('auth.token'),
-
-                // 4) *All* public paths from app.mlc
-                $c->get(MlcConfig::class)
-                    ->get('auth.public_paths', []),
+                // token SECOND
+                (string)$c->get(MlcConfig::class)->get('auth.token'),
+                // wildcard-aware public paths
+                $c->get(MlcConfig::class)->get('auth.public_paths', [])
             ),
 
             /* ----------------------------------------------------------------- */
