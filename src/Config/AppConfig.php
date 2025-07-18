@@ -39,15 +39,14 @@ use MonkeysLegion\Core\Routing\RouteLoader;
 use MonkeysLegion\Database\MySQL\Connection;
 use MonkeysLegion\Entity\Scanner\EntityScanner;
 
-use MonkeysLegion\Http\{
-    CoreRequestHandler,
+use MonkeysLegion\Http\{CoreRequestHandler,
+    Middleware\ErrorHandlerMiddleware,
     RouteRequestHandler,
     Middleware\AuthMiddleware,
     Middleware\LoggingMiddleware,
     Middleware\RateLimitMiddleware,
     MiddlewareDispatcher,
-    Emitter\SapiEmitter
-};
+    Emitter\SapiEmitter};
 
 use MonkeysLegion\Migration\MigrationGenerator;
 use MonkeysLegion\Mlc\{
@@ -289,6 +288,11 @@ final class AppConfig
                 maxAge:           (int)$c->get(MlcConfig::class)->get('cors.max_age', 0),
                 responseFactory:  $c->get(ResponseFactoryInterface::class)
             ),
+
+            /* ----------------------------------------------------------------- */
+            /* Error handler middleware                                          */
+            /* ----------------------------------------------------------------- */
+            ErrorHandlerMiddleware::class => fn() => new ErrorHandlerMiddleware(),
 
             /* ----------------------------------------------------------------- */
             /* Rate-limit middleware                                              */
