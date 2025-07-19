@@ -20,6 +20,7 @@ final class HttpBootstrap
     /** Build container with framework defaults + project overrides */
     public static function buildContainer(string $root): ContainerInterface
     {
+        self::bootstrapEnv($root);
         $b = new ContainerBuilder();
         $b->addDefinitions((new AppConfig())());                 // framework
         if (is_file($root . '/config/app.php')) {                // project
@@ -94,5 +95,20 @@ final class HttpBootstrap
         }
 
         return $core->handle($req);
+    }
+
+    private static function bootstrapEnv(string $root): void
+    {
+        static $loaded = false;
+        if ($loaded) {            // idempotent
+            return;
+        }
+
+        $envBootstrap = $root.'/bootstrap/env.php';   // <-- your file
+        if (is_file($envBootstrap)) {
+            require $envBootstrap;                    // loads vlucas/phpdotenv
+        }
+
+        $loaded = true;
     }
 }
