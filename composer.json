@@ -33,9 +33,7 @@
     "psr-4": {
       "MonkeysLegion\\": "src/"
     },
-    "files": [
-      "bootstrap/env.php"
-    ]
+    "files": [ "bootstrap/env.php" ]
   },
 
   "extra": {
