@@ -5,6 +5,7 @@
   "license": "MIT",
   "minimum-stability": "dev",
   "prefer-stable": true,
+
   "require": {
     "monkeyscloud/monkeyslegion-mlc": "^1.0@dev",
     "monkeyscloud/monkeyslegion-template": "^1.0@dev",
@@ -23,13 +24,20 @@
     "monkeyscloud/monkeyslegion-query": "^1.0@dev",
     "monkeyscloud/monkeyslegion-i18n": "^1.0@dev",
     "monkeyscloud/monkeyslegion-auth": "^1.0@dev",
-    "monolog/monolog": "^3.9",
     "monkeyscloud/monkeyslegion-mail": "^1.0@dev",
+    "monolog/monolog": "^3.9",
     "vlucas/phpdotenv": "^5.6"
   },
+
   "autoload": {
-    "psr-4": { "MonkeysLegion\\": "src/" }
+    "psr-4": {
+      "MonkeysLegion\\": "src/"
+    },
+    "files": [
+      "bootstrap/env.php"
+    ]
   },
+
   "extra": {
     "branch-alias": {
       "dev-main": "1.0-dev"
