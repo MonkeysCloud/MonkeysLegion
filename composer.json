@@ -27,10 +27,7 @@
     "monkeyscloud/monkeyslegion-mail": "^1.0@dev"
   },
   "autoload": {
-    "psr-4": { "MonkeysLegion\\": "src/" },
-    "files": [
-      "bootstrap/env.php"
-    ]
+    "psr-4": { "MonkeysLegion\\": "src/" }
   },
   "extra": {
     "branch-alias": {
