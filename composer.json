@@ -24,8 +24,7 @@
     "monkeyscloud/monkeyslegion-i18n": "^1.0@dev",
     "monkeyscloud/monkeyslegion-auth": "^1.0@dev",
     "monolog/monolog": "^3.9",
-    "monkeyscloud/monkeyslegion-mail": "^1.0@dev",
-    "vlucas/phpdotenv": "^5.6"
+    "monkeyscloud/monkeyslegion-mail": "^1.0@dev"
   },
   "autoload": {
     "psr-4": { "MonkeysLegion\\": "src/" },

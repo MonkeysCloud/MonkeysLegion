@@ -1,31 +1,54 @@
 <?php
+// bootstrap/env.php
+
+require __DIR__ . '/../vendor/autoload.php';
+
 /**
- * Loads env files in this order (highest priority last):
- *   1. .env                – baseline defaults (committed to VCS)
- *   2. .env.local          – machine-specific overrides (git-ignored)
- *   3. .env.${APP_ENV}     – per-environment (dev / staging / prod …)
- *   4. .env.${APP_ENV}.local
- *
- * Anything already set in the real environment wins over every file.
- * (That is Dotenv’s default behaviour with bootEnv/usePutenv.)
+ * Very simple .env file loader.
+ * - Ignores blank lines & comments.
+ * - Respects already-set real environment vars.
+ * - Strips optional surrounding quotes.
  */
-
-use Symfony\Component\Dotenv\Dotenv;
-
-$root = dirname(__DIR__);                  // adjust if the bootstrap lives elsewhere
-$files = ['.env', '.env.local'];
-
-if (isset($_SERVER['APP_ENV'])) {
-    $files[] = ".env.{$_SERVER['APP_ENV']}";
-    $files[] = ".env.{$_SERVER['APP_ENV']}.local";
+function loadEnvFile(string $path): void
+{
+    if (! is_readable($path)) {
+        return;
+    }
+    foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+        $line = trim($line);
+        // skip comments
+        if ($line === '' || str_starts_with($line, '#')) {
+            continue;
+        }
+        // only split on first “=”
+        [$name, $value] = array_merge(explode('=', $line, 2), ['']);
+        $name  = trim($name);
+        $value = trim($value, " \t\n\r\0\x0B\"'");
+        // don't overwrite real env
+        if (getenv($name) === false) {
+            putenv("$name=$value");
+            $_ENV[$name]    = $value;
+            $_SERVER[$name] = $value;
+        }
+    }
 }
 
-$dotenv = new Dotenv();
-$dotenv->usePutenv(true);                  // sets both $_ENV and getenv()
+$root = dirname(__DIR__);
+$env  = $_SERVER['APP_ENV']
+    ?? $_ENV['APP_ENV']
+    ?? getenv('APP_ENV')
+    ?? null;
 
+$files = [
+    $root . '/.env',
+    $root . '/.env.local',
+];
+if ($env) {
+    $files[] = "$root/.env.$env";
+    $files[] = "$root/.env.$env.local";
+}
+
+// 3) Load them in order (later ones override earlier)
 foreach ($files as $file) {
-    $path = $root . '/' . $file;
-    if (is_file($path) && is_readable($path)) {
-        $dotenv->load($path);
-    }
+    loadEnvFile($file);
 }
