@@ -331,7 +331,7 @@ final class AppConfig
                 (int)$c->get(MlcConfig::class)->get('auth.jwt_ttl', 3600)
             ),
             AuthService::class     => fn($c) => new AuthService(
-                $c->get(UserRepository::class),
+                $c->get(RepositoryFactory::class),
                 $c->get(PasswordHasher::class),
                 $c->get(JwtService::class)
             ),
