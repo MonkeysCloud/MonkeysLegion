@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Config;
 
+use App\Middleware\JwtUserMiddleware;
 use App\Repository\UserRepository;
 use Laminas\Diactoros\ServerRequestFactory;
 
@@ -379,6 +380,14 @@ final class AppConfig
             AuthorizationMiddleware::class => fn($c) =>
             new AuthorizationMiddleware(
                 $c->get(AuthorizationService::class)
+            ),
+
+            /* ----------------------------------------------------------------- */
+            /* User repository + middleware for JWT user extraction             */
+            /* ----------------------------------------------------------------- */
+            JwtUserMiddleware::class => fn($c) => new JwtUserMiddleware(
+                $c->get(JwtService::class),
+                $c->get(MlcConfig::class)
             ),
 
             /* ----------------------------------------------------------------- */
