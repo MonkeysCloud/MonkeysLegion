@@ -9,11 +9,13 @@ use MonkeysLegion\Http\CoreRequestHandler;
 use MonkeysLegion\Http\RouteRequestHandler;
 use MonkeysLegion\Http\Emitter\SapiEmitter;
 use MonkeysLegion\Http\Message\ServerRequest;
+use MonkeysLegion\Mail\Provider\MailServiceProvider;
 use MonkeysLegion\Mlc\Config as MlcConfig;
 use MonkeysLegion\Router\Router;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Log\LoggerInterface;
 
 final class HttpBootstrap
 {
@@ -28,13 +30,13 @@ final class HttpBootstrap
         }
 
         // Register mail service provider
-        \MonkeysLegion\Mail\Provider\MailServiceProvider::register($b);
+        MailServiceProvider::register($b);
 
         $container = $b->build();
 
         // Set logger after container is built
-        \MonkeysLegion\Mail\Provider\MailServiceProvider::setLogger(
-            $container->get(\Psr\Log\LoggerInterface::class)
+        MailServiceProvider::setLogger(
+            $container->get(LoggerInterface::class)
         );
 
         return $container;
@@ -56,6 +58,18 @@ final class HttpBootstrap
     {
         $c = self::buildContainer($root);
         define('ML_CONTAINER', $c);
+
+        // Configure PHP-native error logging based on .mlc settings
+        /** @var MlcConfig $mlc */
+        $mlc = $c->get(MlcConfig::class);
+        if ($mlc->get('logging.php_errors.enabled', false)) {
+            error_reporting(E_ALL);
+            ini_set('display_errors', $mlc->get('logging.php_errors.display', 'stderr'));
+            ini_set('log_errors', '1');
+            ini_set('error_log', base_path(
+                $mlc->get('logging.php_errors.file', 'var/log/php-errors.log')
+            ));
+        }
 
         // auto-discover controllers
         $c->get(RouteLoader::class)->loadControllers();

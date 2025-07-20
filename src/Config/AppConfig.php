@@ -29,6 +29,7 @@ use Psr\Http\Message\UploadedFileFactoryInterface;
 use Psr\Http\Message\UriFactoryInterface;
 
 use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Psr\SimpleCache\CacheInterface;
 use MonkeysLegion\Http\SimpleFileCache;
 use MonkeysLegion\Http\Factory\HttpFactory;
@@ -105,15 +106,37 @@ final class AppConfig
             | PSR-3 Logger (Monolog)
             |--------------------------------------------------------------------------
             */
-            LoggerInterface::class => function () {
-                $log = new Logger('app');
-                $log->pushHandler(
-                    new StreamHandler(
-                        base_path('var/log/app.log'),
-                        Logger::DEBUG
-                    )
-                );
-                return $log;
+
+            LoggerInterface::class => function ($c) {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                // Master switch
+                if (! $mlc->get('logging.enabled', false)) {
+                    // no-op logger
+                    return new NullLogger();
+                }
+
+                $logger = new Logger('app');
+
+                // stdout handler
+                if ($mlc->get('logging.stdout.enabled', false)) {
+                    $level = strtoupper($mlc->get('logging.stdout.level', 'info'));
+                    $logger->pushHandler(
+                        new StreamHandler('php://stdout', Logger::toMonologLevel($level))
+                    );
+                }
+
+                // file handler
+                if ($mlc->get('logging.file.enabled', false)) {
+                    $path  = base_path($mlc->get('logging.file.path', 'var/log/app.log'));
+                    $level = strtoupper($mlc->get('logging.file.level', 'info'));
+                    $logger->pushHandler(
+                        new StreamHandler($path, Logger::toMonologLevel($level))
+                    );
+                }
+
+                return $logger;
             },
 
             /* ----------------------------------------------------------------- */
