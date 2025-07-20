@@ -106,31 +106,30 @@ final class AppConfig
             | PSR-3 Logger (Monolog)
             |--------------------------------------------------------------------------
             */
-
             LoggerInterface::class => function ($c) {
                 /** @var MlcConfig $mlc */
-                $mlc = $c->get(MlcConfig::class);
+                $mlc     = $c->get(MlcConfig::class);
+                $logging = $mlc->get('logging', []);
 
                 // Master switch
-                if (! $mlc->get('logging.enabled', false)) {
-                    // no-op logger
+                if (empty($logging['enabled'])) {
                     return new NullLogger();
                 }
 
                 $logger = new Logger('app');
 
                 // stdout handler
-                if ($mlc->get('logging.stdout.enabled', false)) {
-                    $level = strtoupper($mlc->get('logging.stdout.level', 'info'));
+                if (! empty($logging['stdout']['enabled'])) {
+                    $level = strtoupper($logging['stdout']['level'] ?? 'info');
                     $logger->pushHandler(
                         new StreamHandler('php://stdout', Logger::toMonologLevel($level))
                     );
                 }
 
                 // file handler
-                if ($mlc->get('logging.file.enabled', false)) {
-                    $path  = base_path($mlc->get('logging.file.path', 'var/log/app.log'));
-                    $level = strtoupper($mlc->get('logging.file.level', 'info'));
+                if (! empty($logging['file']['enabled'])) {
+                    $path  = base_path($logging['file']['path'] ?? 'var/log/app.log');
+                    $level = strtoupper($logging['file']['level'] ?? 'info');
                     $logger->pushHandler(
                         new StreamHandler($path, Logger::toMonologLevel($level))
                     );
