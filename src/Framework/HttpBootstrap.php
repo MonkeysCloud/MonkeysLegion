@@ -61,14 +61,21 @@ final class HttpBootstrap
 
         // Configure PHP-native error logging based on .mlc settings
         /** @var MlcConfig $mlc */
-        $mlc = $c->get(MlcConfig::class);
-        if ($mlc->get('logging.php_errors.enabled', false)) {
+        $mlc     = $c->get(MlcConfig::class);
+        $logging = $mlc->get('logging', []);
+
+        if (! empty($logging['php_errors']['enabled'])) {
+            // show all errors
             error_reporting(E_ALL);
-            ini_set('display_errors', $mlc->get('logging.php_errors.display', 'stderr'));
+            ini_set('display_errors',
+                $logging['php_errors']['display'] ?? 'stderr'
+            );
             ini_set('log_errors', '1');
-            ini_set('error_log', base_path(
-                $mlc->get('logging.php_errors.file', 'var/log/php-errors.log')
-            ));
+            ini_set('error_log',
+                base_path($logging['php_errors']['file']
+                    ?? 'var/log/php-errors.log'
+                )
+            );
         }
 
         // auto-discover controllers
