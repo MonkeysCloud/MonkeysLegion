@@ -13,7 +13,6 @@ use MonkeysLegion\Auth\AuthService\AuthorizationService;
 use MonkeysLegion\Auth\JwtService;
 use MonkeysLegion\Auth\Middleware\AuthorizationMiddleware;
 use MonkeysLegion\Auth\Middleware\JwtAuthMiddleware;
-use MonkeysLegion\Auth\Middleware\JwtUserMiddleware;
 use MonkeysLegion\Auth\PasswordHasher;
 use MonkeysLegion\Cli\Support\CommandFinder;
 use MonkeysLegion\Core\Middleware\CorsMiddleware;
