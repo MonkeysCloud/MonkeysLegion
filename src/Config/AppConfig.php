@@ -42,7 +42,9 @@ use MonkeysLegion\Database\MySQL\Connection;
 use MonkeysLegion\Entity\Scanner\EntityScanner;
 
 use MonkeysLegion\Http\{CoreRequestHandler,
+    Middleware\ContentNegotiationMiddleware,
     Middleware\ErrorHandlerMiddleware,
+    Middleware\RequestLog,
     RouteRequestHandler,
     Middleware\AuthMiddleware,
     Middleware\LoggingMiddleware,
@@ -98,6 +100,21 @@ use RuntimeException;
 /**  Default DI definitions shipped by the framework.  */
 final class AppConfig
 {
+
+    private const array DEFAULT_MIDDLEWARE = [
+        RequestLog::class,
+        ErrorHandlerMiddleware::class,
+        CorsMiddleware::class,
+        JwtUserMiddleware::class,
+        RateLimitMiddleware::class,
+        LoggingMiddleware::class,
+        ContentNegotiationMiddleware::class,
+        ValidationMiddleware::class,
+        OpenApiMiddleware::class,
+        JwtAuthMiddleware::class,
+        AuthorizationMiddleware::class,
+    ];
+
     public function __invoke(): array
     {
         return [
@@ -427,15 +444,16 @@ final class AppConfig
              | PSR-15 pipeline — driven *solely* by config/middleware.mlc
              * ---------------------------------------------------------------- */
             MiddlewareDispatcher::class => static function ($c) {
-                $ids = $c->get(MlcConfig::class)->get('middleware.global', []);
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
 
-                // If the list is empty, fail fast so the bug is obvious
-                if ($ids === []) {
-                    throw new RuntimeException(
-                        'No middleware configured. Did you forget config/middleware.mlc?'
-                    );
+                // Try reading a user‐defined list; fall back to DEFAULT_MIDDLEWARE if empty
+                $ids = $mlc->get('middleware.global', []);
+                if (empty($ids)) {
+                    $ids = self::DEFAULT_MIDDLEWARE;
                 }
 
+                // Instantiate each middleware from the container
                 $stack = array_map([$c, 'get'], $ids);
 
                 return new MiddlewareDispatcher(
