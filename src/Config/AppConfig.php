@@ -100,21 +100,6 @@ use RuntimeException;
 /**  Default DI definitions shipped by the framework.  */
 final class AppConfig
 {
-
-    private const array DEFAULT_MIDDLEWARE = [
-        RequestLog::class,
-        ErrorHandlerMiddleware::class,
-        CorsMiddleware::class,
-        JwtUserMiddleware::class,
-        RateLimitMiddleware::class,
-        LoggingMiddleware::class,
-        ContentNegotiationMiddleware::class,
-        ValidationMiddleware::class,
-        OpenApiMiddleware::class,
-        JwtAuthMiddleware::class,
-        AuthorizationMiddleware::class,
-    ];
-
     public function __invoke(): array
     {
         return [
@@ -447,11 +432,8 @@ final class AppConfig
                 /** @var MlcConfig $mlc */
                 $mlc = $c->get(MlcConfig::class);
 
-                // Try reading a user‐defined list; fall back to DEFAULT_MIDDLEWARE if empty
+                // Try reading user‐defined list; fall back to DEFAULT_MIDDLEWARE if empty
                 $ids = $mlc->get('middleware.global', []);
-                if (empty($ids)) {
-                    $ids = self::DEFAULT_MIDDLEWARE;
-                }
 
                 // Instantiate each middleware from the container
                 $stack = array_map([$c, 'get'], $ids);
