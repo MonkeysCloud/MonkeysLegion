@@ -5,6 +5,7 @@ namespace MonkeysLegion\Framework;
 use MonkeysLegion\Config\AppConfig;
 use MonkeysLegion\Core\Routing\RouteLoader;
 use MonkeysLegion\DI\ContainerBuilder;
+use MonkeysLegion\Files\Support\ServiceProvider as FilesServiceProvider;
 use MonkeysLegion\Http\CoreRequestHandler;
 use MonkeysLegion\Http\RouteRequestHandler;
 use MonkeysLegion\Http\Emitter\SapiEmitter;
@@ -23,18 +24,27 @@ final class HttpBootstrap
     public static function buildContainer(string $root): ContainerInterface
     {
         self::bootstrapEnv($root);
+
         $b = new ContainerBuilder();
-        $b->addDefinitions((new AppConfig())());                 // framework
-        if (is_file($root . '/config/app.php')) {                // project
-            $b->addDefinitions(require $root . '/config/app.php');
+
+        // 1) framework definitions
+        $b->addDefinitions((new AppConfig())());
+
+        // 2) project overrides
+        if (is_file($root.'/config/app.php')) {
+            $b->addDefinitions(require $root.'/config/app.php');
         }
 
-        // Register mail service provider
+        // 3) register the Files provider onto the *builder*
+        (new FilesServiceProvider())->register($b);
+
+        // 4) mail provider also onto builder
         MailServiceProvider::register($b);
 
+        // 5) now build the container
         $container = $b->build();
 
-        // Set logger after container is built
+        // 6) set up mail logger
         MailServiceProvider::setLogger(
             $container->get(LoggerInterface::class)
         );
