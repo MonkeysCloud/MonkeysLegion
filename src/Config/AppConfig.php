@@ -41,7 +41,8 @@ use MonkeysLegion\Core\Routing\RouteLoader;
 use MonkeysLegion\Database\MySQL\Connection;
 use MonkeysLegion\Entity\Scanner\EntityScanner;
 
-use MonkeysLegion\Http\{CoreRequestHandler,
+use MonkeysLegion\Http\{
+    CoreRequestHandler,
     Middleware\ContentNegotiationMiddleware,
     Middleware\ErrorHandlerMiddleware,
     Middleware\RequestLog,
@@ -50,7 +51,8 @@ use MonkeysLegion\Http\{CoreRequestHandler,
     Middleware\LoggingMiddleware,
     Middleware\RateLimitMiddleware,
     MiddlewareDispatcher,
-    Emitter\SapiEmitter};
+    Emitter\SapiEmitter
+};
 
 use MonkeysLegion\Migration\MigrationGenerator;
 use MonkeysLegion\Mlc\{
@@ -90,6 +92,8 @@ use MonkeysLegion\Http\OpenApi\{
     OpenApiGenerator,
     OpenApiMiddleware
 };
+use MonkeysLegion\Logger\FrameworkLoggerInterface;
+use MonkeysLegion\Logger\MonkeyLogger;
 use MonkeysLegion\Mail\Provider\MailServiceProvider;
 use MonkeysLegion\Validation\ValidatorInterface;
 use MonkeysLegion\Validation\AttributeValidator;
@@ -140,6 +144,11 @@ final class AppConfig
 
                 return $logger;
             },
+
+            /* ----------------------------------------------------------------- */
+            /* Framework logger (MonkeysLegion\Logger\MonkeyLogger)                */
+            /* ----------------------------------------------------------------- */
+            FrameworkLoggerInterface::class => fn() => new MonkeyLogger(),
 
             /* ----------------------------------------------------------------- */
             /* PSR-17 factories                                                   */
@@ -305,13 +314,13 @@ final class AppConfig
             /* CORS middleware                                                   */
             /* ----------------------------------------------------------------- */
             CorsMiddleware::class => fn($c) => new CorsMiddleware(
-                allowOrigin:      $c->get(MlcConfig::class)->get('cors.allow_origin', '*'),
-                allowMethods:     $c->get(MlcConfig::class)->get('cors.allow_methods', ['GET','POST','OPTIONS']),
-                allowHeaders:     $c->get(MlcConfig::class)->get('cors.allow_headers', ['Content-Type','Authorization']),
-                exposeHeaders:    $c->get(MlcConfig::class)->get('cors.expose_headers', null),
+                allowOrigin: $c->get(MlcConfig::class)->get('cors.allow_origin', '*'),
+                allowMethods: $c->get(MlcConfig::class)->get('cors.allow_methods', ['GET', 'POST', 'OPTIONS']),
+                allowHeaders: $c->get(MlcConfig::class)->get('cors.allow_headers', ['Content-Type', 'Authorization']),
+                exposeHeaders: $c->get(MlcConfig::class)->get('cors.expose_headers', null),
                 allowCredentials: (bool)$c->get(MlcConfig::class)->get('cors.allow_credentials', false),
-                maxAge:           (int)$c->get(MlcConfig::class)->get('cors.max_age', 0),
-                responseFactory:  $c->get(ResponseFactoryInterface::class)
+                maxAge: (int)$c->get(MlcConfig::class)->get('cors.max_age', 0),
+                responseFactory: $c->get(ResponseFactoryInterface::class)
             ),
 
             /* ----------------------------------------------------------------- */

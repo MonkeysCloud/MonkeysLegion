@@ -10,6 +10,7 @@ use MonkeysLegion\Http\CoreRequestHandler;
 use MonkeysLegion\Http\RouteRequestHandler;
 use MonkeysLegion\Http\Emitter\SapiEmitter;
 use MonkeysLegion\Http\Message\ServerRequest;
+use MonkeysLegion\Logger\FrameworkLoggerInterface;
 use MonkeysLegion\Mail\Provider\MailServiceProvider;
 use MonkeysLegion\Mlc\Config as MlcConfig;
 use MonkeysLegion\Router\Router;
@@ -31,8 +32,8 @@ final class HttpBootstrap
         $b->addDefinitions((new AppConfig())());
 
         // 2) project overrides
-        if (is_file($root.'/config/app.php')) {
-            $b->addDefinitions(require $root.'/config/app.php');
+        if (is_file($root . '/config/app.php')) {
+            $b->addDefinitions(require $root . '/config/app.php');
         }
 
         // 3) register the Files provider onto the *builder*
@@ -44,10 +45,16 @@ final class HttpBootstrap
         // 5) now build the container
         $container = $b->build();
 
-        // 6) set up mail logger
+        // 6) set up mail logger(SOON GONNA BE REMOVED)
+        // Set logger after container is built 
         MailServiceProvider::setLogger(
             $container->get(LoggerInterface::class)
         );
+
+        // Set LoggerInterface/Environment to the framework logger
+        $container->get(FrameworkLoggerInterface::class)
+            ->setLogger($container->get(LoggerInterface::class))
+            ->setEnvironment((string) $container->get(MlcConfig::class)->get('app.env', 'dev'));
 
         return $container;
     }
@@ -77,13 +84,16 @@ final class HttpBootstrap
         if (! empty($logging['php_errors']['enabled'])) {
             // show all errors
             error_reporting(E_ALL);
-            ini_set('display_errors',
+            ini_set(
+                'display_errors',
                 $logging['php_errors']['display'] ?? 'stderr'
             );
             ini_set('log_errors', '1');
-            ini_set('error_log',
-                base_path($logging['php_errors']['file']
-                    ?? 'var/log/php-errors.log'
+            ini_set(
+                'error_log',
+                base_path(
+                    $logging['php_errors']['file']
+                        ?? 'var/log/php-errors.log'
                 )
             );
         }
@@ -135,7 +145,7 @@ final class HttpBootstrap
             return;
         }
 
-        $envBootstrap = $root.'/bootstrap/env.php';   // <-- your file
+        $envBootstrap = $root . '/bootstrap/env.php';   // <-- your file
         if (is_file($envBootstrap)) {
             require $envBootstrap;                    // loads vlucas/phpdotenv
         }
