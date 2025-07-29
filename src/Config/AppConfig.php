@@ -36,7 +36,8 @@ use MonkeysLegion\Http\SimpleFileCache;
 use MonkeysLegion\Http\Factory\HttpFactory;
 
 use MonkeysLegion\Cli\CliKernel;
-
+use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
+use MonkeysLegion\Core\Logger\MonkeyLogger;
 use MonkeysLegion\Core\Routing\RouteLoader;
 use MonkeysLegion\Database\MySQL\Connection;
 use MonkeysLegion\Entity\Scanner\EntityScanner;
@@ -92,14 +93,10 @@ use MonkeysLegion\Http\OpenApi\{
     OpenApiGenerator,
     OpenApiMiddleware
 };
-use MonkeysLegion\Logger\FrameworkLoggerInterface;
-use MonkeysLegion\Logger\MonkeyLogger;
-use MonkeysLegion\Mail\Provider\MailServiceProvider;
 use MonkeysLegion\Validation\ValidatorInterface;
 use MonkeysLegion\Validation\AttributeValidator;
 use MonkeysLegion\Validation\DtoBinder;
 use MonkeysLegion\Validation\Middleware\ValidationMiddleware;
-use RuntimeException;
 
 /**  Default DI definitions shipped by the framework.  */
 final class AppConfig

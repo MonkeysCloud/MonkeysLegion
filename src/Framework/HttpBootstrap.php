@@ -3,6 +3,7 @@
 namespace MonkeysLegion\Framework;
 
 use MonkeysLegion\Config\AppConfig;
+use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
 use MonkeysLegion\Core\Routing\RouteLoader;
 use MonkeysLegion\DI\ContainerBuilder;
 use MonkeysLegion\Files\Support\ServiceProvider as FilesServiceProvider;
@@ -10,7 +11,6 @@ use MonkeysLegion\Http\CoreRequestHandler;
 use MonkeysLegion\Http\RouteRequestHandler;
 use MonkeysLegion\Http\Emitter\SapiEmitter;
 use MonkeysLegion\Http\Message\ServerRequest;
-use MonkeysLegion\Logger\FrameworkLoggerInterface;
 use MonkeysLegion\Mail\Provider\MailServiceProvider;
 use MonkeysLegion\Mlc\Config as MlcConfig;
 use MonkeysLegion\Router\Router;
@@ -45,16 +45,15 @@ final class HttpBootstrap
         // 5) now build the container
         $container = $b->build();
 
-        // 6) set up mail logger(SOON GONNA BE REMOVED)
-        // Set logger after container is built 
-        MailServiceProvider::setLogger(
-            $container->get(LoggerInterface::class)
-        );
-
-        // Set LoggerInterface/Environment to the framework logger
+        // 6) Set LoggerInterface/Environment to the framework logger
         $container->get(FrameworkLoggerInterface::class)
             ->setLogger($container->get(LoggerInterface::class))
             ->setEnvironment((string) $container->get(MlcConfig::class)->get('app.env', 'dev'));
+
+        // 7) set up mail logger after container is built
+        MailServiceProvider::setLogger(
+            $container->get(FrameworkLoggerInterface::class)
+        );
 
         return $container;
     }
