@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Config;
 
-use App\Repository\UserRepository;
 use Laminas\Diactoros\ServerRequestFactory;
 
 use MonkeysLegion\Auth\AuthService;
@@ -19,8 +18,6 @@ use MonkeysLegion\Core\Middleware\CorsMiddleware;
 use MonkeysLegion\DI\ContainerBuilder;
 use MonkeysLegion\Query\QueryBuilder;
 use MonkeysLegion\Repository\RepositoryFactory;
-use Monolog\Logger;
-use Monolog\Handler\StreamHandler;
 
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
@@ -30,16 +27,14 @@ use Psr\Http\Message\UploadedFileFactoryInterface;
 use Psr\Http\Message\UriFactoryInterface;
 
 use Psr\Log\LoggerInterface;
-use Psr\Log\NullLogger;
 use Psr\SimpleCache\CacheInterface;
 use MonkeysLegion\Http\SimpleFileCache;
 use MonkeysLegion\Http\Factory\HttpFactory;
 
 use MonkeysLegion\Cli\CliKernel;
-use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
-use MonkeysLegion\Core\Logger\MonkeyLogger;
 use MonkeysLegion\Core\Routing\RouteLoader;
 use MonkeysLegion\Database\MySQL\Connection;
+use MonkeysLegion\DI\Container;
 use MonkeysLegion\Entity\Scanner\EntityScanner;
 
 use MonkeysLegion\Http\{
@@ -101,51 +96,13 @@ use MonkeysLegion\Validation\Middleware\ValidationMiddleware;
 /**  Default DI definitions shipped by the framework.  */
 final class AppConfig
 {
-    public function __invoke(): array
+    public function __invoke(Container $lc): array // $lc is a Already Built Logger Container
     {
+        // Load config loader definitions
+        $configLoader = require __DIR__ . '/ConfigLoader.php';
+
         return [
-
-            /*
-            |--------------------------------------------------------------------------
-            | PSR-3 Logger (Monolog)
-            |--------------------------------------------------------------------------
-            */
-            LoggerInterface::class => function ($c) {
-                /** @var MlcConfig $mlc */
-                $mlc     = $c->get(MlcConfig::class);
-                $logging = $mlc->get('logging', []);
-
-                // Master switch
-                if (empty($logging['enabled'])) {
-                    return new NullLogger();
-                }
-
-                $logger = new Logger('app');
-
-                // stdout handler
-                if (! empty($logging['stdout']['enabled'])) {
-                    $level = strtoupper($logging['stdout']['level'] ?? 'info');
-                    $logger->pushHandler(
-                        new StreamHandler('php://stdout', Logger::toMonologLevel($level))
-                    );
-                }
-
-                // file handler
-                if (! empty($logging['file']['enabled'])) {
-                    $path  = base_path($logging['file']['path'] ?? 'var/log/app.log');
-                    $level = strtoupper($logging['file']['level'] ?? 'info');
-                    $logger->pushHandler(
-                        new StreamHandler($path, Logger::toMonologLevel($level))
-                    );
-                }
-
-                return $logger;
-            },
-
-            /* ----------------------------------------------------------------- */
-            /* Framework logger (MonkeysLegion\Logger\MonkeyLogger)                */
-            /* ----------------------------------------------------------------- */
-            FrameworkLoggerInterface::class => fn() => new MonkeyLogger(),
+            ...$configLoader,
 
             /* ----------------------------------------------------------------- */
             /* PSR-17 factories                                                   */
@@ -192,8 +149,8 @@ final class AppConfig
 
             // Example: register a listener right here (commented)
             /*
-            App\Listeners\AuditLogger::class => function ($c) {
-                $cb = [$c->get(LoggerInterface::class), 'info'];
+            App\Listeners\AuditLogger::class => function ($c) use ($lc) {
+                $cb = [$lc->get(LoggerInterface::class), 'info'];
                 $c->get(ListenerProvider::class)
                    ->add(App\Events\UserDeleted::class, $cb, priority: 10);
 

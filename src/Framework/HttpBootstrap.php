@@ -3,8 +3,10 @@
 namespace MonkeysLegion\Framework;
 
 use MonkeysLegion\Config\AppConfig;
+use MonkeysLegion\Config\LoggerConfig;
 use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
 use MonkeysLegion\Core\Routing\RouteLoader;
+use MonkeysLegion\DI\Container;
 use MonkeysLegion\DI\ContainerBuilder;
 use MonkeysLegion\Files\Support\ServiceProvider as FilesServiceProvider;
 use MonkeysLegion\Http\CoreRequestHandler;
@@ -26,10 +28,11 @@ final class HttpBootstrap
     {
         self::bootstrapEnv($root);
 
-        $b = new ContainerBuilder();
+        $lc = self::bootstrapLogger();
 
+        $b = new ContainerBuilder();
         // 1) framework definitions
-        $b->addDefinitions((new AppConfig())());
+        $b->addDefinitions((new AppConfig())($lc));
 
         // 2) project overrides
         if (is_file($root . '/config/app.php')) {
@@ -39,21 +42,16 @@ final class HttpBootstrap
         // 3) register the Files provider onto the *builder*
         (new FilesServiceProvider())->register($b);
 
-        // 4) mail provider also onto builder
+        // 4) set up mail logger after container is built
+        MailServiceProvider::setLogger(
+            $lc->get(FrameworkLoggerInterface::class)
+        );
+
+        // 5) mail provider also onto builder
         MailServiceProvider::register($b);
 
-        // 5) now build the container
+        // 6) now build the container
         $container = $b->build();
-
-        // 6) Set LoggerInterface/Environment to the framework logger
-        $container->get(FrameworkLoggerInterface::class)
-            ->setLogger($container->get(LoggerInterface::class))
-            ->setEnvironment((string) $container->get(MlcConfig::class)->get('app.env', 'dev'));
-
-        // 7) set up mail logger after container is built
-        MailServiceProvider::setLogger(
-            $container->get(FrameworkLoggerInterface::class)
-        );
 
         return $container;
     }
@@ -150,5 +148,23 @@ final class HttpBootstrap
         }
 
         $loaded = true;
+    }
+
+    private static function bootstrapLogger(): Container
+    {
+        $b = new ContainerBuilder();
+        $b->addDefinitions((new LoggerConfig())());
+        $cb = $b->build(); // build the logger container
+
+        // Ensure the logger is set up correctly
+        if (!$cb->has(LoggerInterface::class)) {
+            throw new \RuntimeException('LoggerInterface is not defined in the container.');
+        }
+
+        /** @var FrameworkLoggerInterface $logger */
+        $logger = $cb->get(FrameworkLoggerInterface::class);
+        $logger->setLogger($cb->get(LoggerInterface::class))
+            ->setEnvironment((string) ($_ENV['APP_ENV'] ?? 'dev'));
+        return $cb;
     }
 }
