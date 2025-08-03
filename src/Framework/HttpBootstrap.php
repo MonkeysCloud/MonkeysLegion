@@ -50,6 +50,9 @@ final class HttpBootstrap
         // 5) mail provider also onto builder
         MailServiceProvider::register($b);
 
+        // 5.1) register any extra providers from composer.json
+        self::registerExtras($b, $root, $lc);
+
         // 6) now build the container
         $container = $b->build();
 
@@ -166,5 +169,37 @@ final class HttpBootstrap
         $logger->setLogger($cb->get(LoggerInterface::class))
             ->setEnvironment((string) ($_ENV['APP_ENV'] ?? 'dev'));
         return $cb;
+    }
+
+    private static function registerExtras(ContainerBuilder $b, $root, Container $lc): void
+    {
+        /** @var FrameworkLoggerInterface $logger */
+        $logger = $lc->get(FrameworkLoggerInterface::class);
+
+        $composerExtraProviders = [];
+        $composerJson = $root . '/composer.json';
+        if (is_file($composerJson)) {
+            $composerData = json_decode(file_get_contents($composerJson), true);
+            $composerExtraProviders = $composerData['extra']['monkeyslegion']['providers'] ?? [];
+        }
+
+        foreach ($composerExtraProviders as $providerClass) {
+            if (!class_exists($providerClass)) continue;
+
+            try {
+                if (method_exists($providerClass, 'setLogger')) {
+                    $providerClass::setLogger($logger);
+                }
+                if (method_exists($providerClass, 'register')) {
+                    $providerClass::register($b);
+                }
+            } catch (\Exception $e) {
+                $logger->error(
+                    "Failed to register provider: {$providerClass}",
+                    ['exception' => $e]
+                );
+                // don't stop the bootstrap process if a provider fails
+            }
+        }
     }
 }
