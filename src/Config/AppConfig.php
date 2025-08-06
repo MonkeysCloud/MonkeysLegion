@@ -269,7 +269,7 @@ final class AppConfig
             /* ----------------------------------------------------------------- */
             CorsMiddleware::class => fn($c) => new CorsMiddleware(
                 allowOrigin: $c->get(MlcConfig::class)->get('cors.allow_origin', '*'),
-                allowMethods: $c->get(MlcConfig::class)->get('cors.allow_methods', ['GET', 'POST', 'OPTIONS']),
+                allowMethods: $c->get(MlcConfig::class)->get('cors.allow_methods', ['GET', 'POST', 'OPTIONS', 'PATCH', 'DELETE']),
                 allowHeaders: $c->get(MlcConfig::class)->get('cors.allow_headers', ['Content-Type', 'Authorization']),
                 exposeHeaders: $c->get(MlcConfig::class)->get('cors.expose_headers', null),
                 allowCredentials: (bool)$c->get(MlcConfig::class)->get('cors.allow_credentials', false),
