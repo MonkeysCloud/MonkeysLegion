@@ -33,7 +33,8 @@ use MonkeysLegion\Http\Factory\HttpFactory;
 
 use MonkeysLegion\Cli\CliKernel;
 use MonkeysLegion\Core\Routing\RouteLoader;
-use MonkeysLegion\Database\MySQL\Connection;
+use MonkeysLegion\Database\Contracts\ConnectionInterface;
+use MonkeysLegion\Database\Factory\ConnectionFactory;
 use MonkeysLegion\DI\Container;
 use MonkeysLegion\Entity\Scanner\EntityScanner;
 
@@ -216,14 +217,17 @@ final class AppConfig
             /* ----------------------------------------------------------------- */
             /* Database                                                            */
             /* ----------------------------------------------------------------- */
-            Connection::class => fn() => new Connection(
-                require base_path('config/database.php')
-            ),
+            ConnectionInterface::class => function () {
+                $config = require base_path('config/database.php');
+                $type = $config['default'] ?? 'mysql';
+                $conn = ConnectionFactory::createByType($type, $config);
+                return $conn;
+            },
 
             /* ----------------------------------------------------------------- */
             /* Query Builder & Repositories                                       */
             /* ----------------------------------------------------------------- */
-            QueryBuilder::class   => fn($c) => new QueryBuilder($c->get(Connection::class)),
+            QueryBuilder::class   => fn($c) => new QueryBuilder($c->get(ConnectionInterface::class)),
 
             RepositoryFactory::class => fn($c) => new RepositoryFactory(
                 $c->get(QueryBuilder::class)
@@ -234,7 +238,7 @@ final class AppConfig
             /* ----------------------------------------------------------------- */
             EntityScanner::class      => fn() => new EntityScanner(base_path('app/Entity')),
             MigrationGenerator::class => fn($c) => new MigrationGenerator(
-                $c->get(Connection::class)
+                $c->get(ConnectionInterface::class)
             ),
 
             /* ----------------------------------------------------------------- */
