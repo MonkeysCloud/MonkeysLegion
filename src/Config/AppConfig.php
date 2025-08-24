@@ -33,7 +33,9 @@ use MonkeysLegion\Http\Factory\HttpFactory;
 
 use MonkeysLegion\Cli\CliKernel;
 use MonkeysLegion\Core\Routing\RouteLoader;
+use MonkeysLegion\Database\Cache\Contracts\CacheItemPoolInterface;
 use MonkeysLegion\Database\Contracts\ConnectionInterface;
+use MonkeysLegion\Database\Factory\CacheFactory;
 use MonkeysLegion\Database\Factory\ConnectionFactory;
 use MonkeysLegion\DI\Container;
 use MonkeysLegion\Entity\Scanner\EntityScanner;
@@ -217,12 +219,7 @@ final class AppConfig
             /* ----------------------------------------------------------------- */
             /* Database                                                            */
             /* ----------------------------------------------------------------- */
-            ConnectionInterface::class => function () {
-                $config = require base_path('config/database.php');
-                $type = $config['default'] ?? 'mysql';
-                $conn = ConnectionFactory::createByType($type, $config);
-                return $conn;
-            },
+            ConnectionInterface::class => fn() => ConnectionFactory::create(require base_path('config/database.php') ?? []),
 
             /* ----------------------------------------------------------------- */
             /* Query Builder & Repositories                                       */
@@ -423,6 +420,11 @@ final class AppConfig
                 $c,
                 CommandFinder::all()
             ),
+
+            /* ----------------------------------------------------------------- */
+            /* Cache                                                             */
+            /* ----------------------------------------------------------------- */
+            CacheItemPoolInterface::class => fn() => CacheFactory::create(require base_path('config/cache.php') ?? []),
         ];
     }
 
