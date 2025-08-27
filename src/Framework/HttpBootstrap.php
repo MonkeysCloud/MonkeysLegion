@@ -13,6 +13,8 @@ use MonkeysLegion\Http\CoreRequestHandler;
 use MonkeysLegion\Http\RouteRequestHandler;
 use MonkeysLegion\Http\Emitter\SapiEmitter;
 use MonkeysLegion\Http\Message\ServerRequest;
+use MonkeysLegion\Http\Error\ErrorHandler;
+use MonkeysLegion\Http\Error\HtmlErrorRenderer;
 use MonkeysLegion\Mail\Provider\MailServiceProvider;
 use MonkeysLegion\Mlc\Config as MlcConfig;
 use MonkeysLegion\Router\Router;
@@ -26,6 +28,9 @@ final class HttpBootstrap
     /** Build container with framework defaults + project overrides */
     public static function buildContainer(string $root): ContainerInterface
     {
+        // Register error handler before anything that could have parse errors
+        self::registerErrorHandler();
+
         self::bootstrapEnv($root);
 
         $lc = self::bootstrapLogger();
@@ -73,6 +78,9 @@ final class HttpBootstrap
      */
     public static function run(string $root, ?callable $customizer = null): void
     {
+        // *** REGISTER ERROR HANDLER IMMEDIATELY - BEFORE CONTAINER ***
+        self::registerErrorHandler();
+
         $c = self::buildContainer($root);
         define('ML_CONTAINER', $c);
 
@@ -113,6 +121,28 @@ final class HttpBootstrap
 
         // emit
         $c->get(SapiEmitter::class)->emit($res);
+    }
+
+    /**
+     * Register global error handler to catch ALL types of errors
+     */
+    private static function registerErrorHandler(): void
+    {
+        static $registered = false;
+        if ($registered) {
+            return; // Prevent double registration
+        }
+
+        $errorHandler = new ErrorHandler();
+
+        if (PHP_SAPI === 'cli') {
+            // $errorHandler->useRenderer(new CliErrorRenderer()); // TODO: when you implement CLI renderer
+        } else {
+            $errorHandler->useRenderer(new HtmlErrorRenderer());
+        }
+
+        $errorHandler->register();
+        $registered = true;
     }
 
     /** Default PSR-15 pipeline driven by middleware.global */

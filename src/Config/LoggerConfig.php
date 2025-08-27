@@ -10,7 +10,6 @@ use Psr\Log\NullLogger;
 use Psr\Log\LoggerInterface;
 use MonkeysLegion\Mlc\{
     Config as MlcConfig,
-    Loader as MlcLoader,
 };
 
 /**  Default DI definitions shipped by the framework.  */
