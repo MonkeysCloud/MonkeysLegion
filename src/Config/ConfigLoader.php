@@ -13,7 +13,8 @@ return [
     MlcParser::class                    => fn()   => new MlcParser(),
     MlcLoader::class                    => fn($c) => new MlcLoader(
         $c->get(MlcParser::class),
-        base_path('config')
+        base_path('config'),
+        base_path()
     ),
 
     /* -----------------------------------------------------------------

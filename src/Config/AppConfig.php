@@ -99,7 +99,7 @@ use MonkeysLegion\Validation\Middleware\ValidationMiddleware;
 /**  Default DI definitions shipped by the framework.  */
 final class AppConfig
 {
-    public function __invoke(Container $lc): array // $lc is a Already Built Logger Container
+    public function __invoke(): array // $lc is a Already Built Logger Container
     {
         // Load config loader definitions
         $configLoader = require __DIR__ . '/ConfigLoader.php';
@@ -167,7 +167,8 @@ final class AppConfig
             MlcParser::class                    => fn()   => new MlcParser(),
             MlcLoader::class                    => fn($c) => new MlcLoader(
                 $c->get(MlcParser::class),
-                base_path('config')
+                base_path('config'),
+                base_path()
             ),
 
             /* -----------------------------------------------------------------
