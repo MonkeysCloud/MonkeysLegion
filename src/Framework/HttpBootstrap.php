@@ -5,6 +5,7 @@ namespace MonkeysLegion\Framework;
 use MonkeysLegion\Config\AppConfig;
 use MonkeysLegion\Config\LoggerConfig;
 use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
+use MonkeysLegion\Core\Provider\ProviderInterface;
 use MonkeysLegion\Core\Routing\RouteLoader;
 use MonkeysLegion\DI\Container;
 use MonkeysLegion\DI\ContainerBuilder;
@@ -215,13 +216,14 @@ final class HttpBootstrap
 
         foreach ($composerExtraProviders as $providerClass) {
             if (!class_exists($providerClass)) continue;
+            /** @var ProviderInterface $providerClass */
 
             try {
                 if (method_exists($providerClass, 'setLogger')) {
                     $providerClass::setLogger($logger);
                 }
                 if (method_exists($providerClass, 'register')) {
-                    $providerClass::register($b);
+                    $providerClass::register(base_path(), $b);
                 }
             } catch (\Exception $e) {
                 $logger->error(
