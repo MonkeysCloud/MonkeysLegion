@@ -35,6 +35,7 @@ use MonkeysLegion\Cli\CliKernel;
 use MonkeysLegion\Core\Routing\RouteLoader;
 use MonkeysLegion\Database\Cache\Contracts\CacheItemPoolInterface;
 use MonkeysLegion\Database\Contracts\ConnectionInterface;
+use MonkeysLegion\Database\MySQL\Connection;
 use MonkeysLegion\Database\Factory\CacheFactory;
 use MonkeysLegion\Database\Factory\ConnectionFactory;
 use MonkeysLegion\DI\Container;
@@ -211,7 +212,7 @@ final class AppConfig
             ),
 
             Translator::class => fn($c) => new Translator(
-                // fetch locale from env or request (here default 'en')
+            // fetch locale from env or request (here default 'en')
                 $c->get(MlcConfig::class)->get('app.locale', 'en'),
                 base_path('resources/lang'),
                 'en'
@@ -221,7 +222,7 @@ final class AppConfig
             /* Database                                                            */
             /* ----------------------------------------------------------------- */
             ConnectionInterface::class => fn() => ConnectionFactory::create(require base_path('config/database.php') ?? []),
-
+            Connection::class => fn() => ConnectionFactory::create(require base_path('config/database.php') ?? []),
             /* ----------------------------------------------------------------- */
             /* Query Builder & Repositories                                       */
             /* ----------------------------------------------------------------- */
@@ -288,12 +289,12 @@ final class AppConfig
             /* Rate-limit middleware                                              */
             /* ----------------------------------------------------------------- */
             RateLimitMiddleware::class =>
-            fn($c) => new RateLimitMiddleware(
-                $c->get(ResponseFactoryInterface::class),
-                $c->get(CacheInterface::class),
-                5000,   // limit
-                60     // window (seconds)
-            ),
+                fn($c) => new RateLimitMiddleware(
+                    $c->get(ResponseFactoryInterface::class),
+                    $c->get(CacheInterface::class),
+                    5000,   // limit
+                    60     // window (seconds)
+                ),
 
             /* ----------------------------------------------------------------- */
             /* Authentication middleware                                          */
@@ -312,7 +313,7 @@ final class AppConfig
             /* Simple logging middleware                                          */
             /* ----------------------------------------------------------------- */
             LoggingMiddleware::class    => fn() => new LoggingMiddleware(
-                // you can inject LoggerInterface here if your middleware takes it
+            // you can inject LoggerInterface here if your middleware takes it
             ),
 
             PasswordHasher::class => fn() => new PasswordHasher(),
