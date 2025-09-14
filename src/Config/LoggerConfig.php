@@ -2,6 +2,7 @@
 
 namespace MonkeysLegion\Config;
 
+use MonkeysLegion\Config\ConfigLoader;
 use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
 use MonkeysLegion\Core\Logger\MonkeyLogger;
 use Monolog\Handler\StreamHandler;
@@ -12,17 +13,14 @@ use MonkeysLegion\Mlc\{
     Config as MlcConfig,
 };
 
-/**  Default DI definitions shipped by the framework.  */
-final class LoggerConfig
+class LoggerConfig
 {
+    /** @return array<string, callable> */
     public function __invoke(): array
     {
-        // Load config loader definitions
-        $configLoader = require __DIR__ . '/ConfigLoader.php';
-
         return [
-            ...$configLoader,
-            // MlcConfig::class => fn() => new MlcConfig([]),
+            ...((new ConfigLoader)()),
+
             /*
             |--------------------------------------------------------------------------
             | PSR-3 Logger (Monolog)

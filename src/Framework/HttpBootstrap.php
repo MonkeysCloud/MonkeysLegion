@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types=1);
+
 namespace MonkeysLegion\Framework;
 
 use MonkeysLegion\Config\AppConfig;
@@ -15,7 +17,7 @@ use MonkeysLegion\Http\RouteRequestHandler;
 use MonkeysLegion\Http\Emitter\SapiEmitter;
 use MonkeysLegion\Http\Message\ServerRequest;
 use MonkeysLegion\Http\Error\ErrorHandler;
-use MonkeysLegion\Http\Error\HtmlErrorRenderer;
+use MonkeysLegion\Http\Error\Renderer\{PlainTextErrorRenderer, JsonErrorRenderer, HtmlErrorRenderer};
 use MonkeysLegion\Mail\Provider\MailServiceProvider;
 use MonkeysLegion\Mlc\Config as MlcConfig;
 use MonkeysLegion\Router\Router;
@@ -26,19 +28,31 @@ use Psr\Log\LoggerInterface;
 
 final class HttpBootstrap
 {
+
+    private static ?ErrorHandler $errorHandler = null;
+
     /** Build container with framework defaults + project overrides */
-    public static function buildContainer(string $root): ContainerInterface
+    public static function buildContainer(string $root): Container
     {
-        // Register error handler before anything that could have parse errors
+        // Register error handler
         self::registerErrorHandler();
 
         self::bootstrapEnv($root);
 
+        // Bootstrap logger early so it's available during container build
         $lc = self::bootstrapLogger();
 
+        // configure the error handler with a logger
+        /** @var FrameworkLoggerInterface $loggerInterface */
+        $loggerInterface = $lc->get(FrameworkLoggerInterface::class);
+        self::configureErrorHandlerLogger(
+            $loggerInterface
+        );
+
         $b = new ContainerBuilder();
+
         // 1) framework definitions
-        $b->addDefinitions((new AppConfig())($lc));
+        $b->addDefinitions((new AppConfig())());
 
         // 2) project overrides
         if (is_file($root . '/config/app.php')) {
@@ -54,13 +68,15 @@ final class HttpBootstrap
         );
 
         // 5) mail provider also onto builder
-        MailServiceProvider::register($b);
+        MailServiceProvider::register($root, $b);
 
         // 5.1) register any extra providers from composer.json
         self::registerExtras($b, $root, $lc);
 
         // 6) now build the container
         $container = $b->build();
+
+        self::bootstrapLogger($container);
 
         return $container;
     }
@@ -79,9 +95,6 @@ final class HttpBootstrap
      */
     public static function run(string $root, ?callable $customizer = null): void
     {
-        // *** REGISTER ERROR HANDLER IMMEDIATELY - BEFORE CONTAINER ***
-        self::registerErrorHandler();
-
         $c = self::buildContainer($root);
         define('ML_CONTAINER', $c);
 
@@ -89,6 +102,13 @@ final class HttpBootstrap
         /** @var MlcConfig $mlc */
         $mlc     = $c->get(MlcConfig::class);
         $logging = $mlc->get('logging', []);
+
+        $logging = $mlc->get('logging', []);
+
+        // Enable debug mode in error handler only if debug/logging is enabled
+        if (self::$errorHandler !== null && !empty($logging['enabled']) && ($logging['stdout']['level'] ?? '') === 'debug') {
+            self::$errorHandler->setDebug(true);
+        }
 
         if (! empty($logging['php_errors']['enabled'])) {
             // show all errors
@@ -122,10 +142,11 @@ final class HttpBootstrap
 
         // emit
         $c->get(SapiEmitter::class)->emit($res);
+        dd('end of run');
     }
 
     /**
-     * Register global error handler to catch ALL types of errors
+     * Register global error handler
      */
     private static function registerErrorHandler(): void
     {
@@ -134,15 +155,17 @@ final class HttpBootstrap
             return; // Prevent double registration
         }
 
-        $errorHandler = new ErrorHandler();
+        self::$errorHandler = new ErrorHandler();
 
         if (PHP_SAPI === 'cli') {
-            // $errorHandler->useRenderer(new CliErrorRenderer()); // TODO: when you implement CLI renderer
+            self::$errorHandler->useRenderer(new PlainTextErrorRenderer());
+        } elseif (str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') || str_starts_with($_SERVER['REQUEST_URI'], '/api')) {
+            self::$errorHandler->useRenderer(new JsonErrorRenderer());
         } else {
-            $errorHandler->useRenderer(new HtmlErrorRenderer());
+            self::$errorHandler->useRenderer(new HtmlErrorRenderer());
         }
 
-        $errorHandler->register();
+        self::$errorHandler->register();
         $registered = true;
     }
 
@@ -156,7 +179,6 @@ final class HttpBootstrap
             $c->get(RouteRequestHandler::class),
             $rf
         );
-
         /** @var MlcConfig $mlc */
         $mlc = $c->get(MlcConfig::class);
 
@@ -232,6 +254,16 @@ final class HttpBootstrap
                 );
                 // don't stop the bootstrap process if a provider fails
             }
+        }
+    }
+
+    /**
+     * Configure the error handler with a logger
+     */
+    private static function configureErrorHandlerLogger(FrameworkLoggerInterface $logger): void
+    {
+        if (self::$errorHandler !== null) {
+            self::$errorHandler->useLogger($logger);
         }
     }
 }

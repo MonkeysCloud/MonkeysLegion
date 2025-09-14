@@ -102,11 +102,8 @@ final class AppConfig
 {
     public function __invoke(): array // $lc is a Already Built Logger Container
     {
-        // Load config loader definitions
-        $configLoader = require __DIR__ . '/ConfigLoader.php';
-
         return [
-            ...$configLoader,
+            ...((new LoggerConfig())()),
 
             /* ----------------------------------------------------------------- */
             /* PSR-17 factories                                                   */
@@ -212,7 +209,7 @@ final class AppConfig
             ),
 
             Translator::class => fn($c) => new Translator(
-            // fetch locale from env or request (here default 'en')
+                // fetch locale from env or request (here default 'en')
                 $c->get(MlcConfig::class)->get('app.locale', 'en'),
                 base_path('resources/lang'),
                 'en'
@@ -289,12 +286,12 @@ final class AppConfig
             /* Rate-limit middleware                                              */
             /* ----------------------------------------------------------------- */
             RateLimitMiddleware::class =>
-                fn($c) => new RateLimitMiddleware(
-                    $c->get(ResponseFactoryInterface::class),
-                    $c->get(CacheInterface::class),
-                    5000,   // limit
-                    60     // window (seconds)
-                ),
+            fn($c) => new RateLimitMiddleware(
+                $c->get(ResponseFactoryInterface::class),
+                $c->get(CacheInterface::class),
+                5000,   // limit
+                60     // window (seconds)
+            ),
 
             /* ----------------------------------------------------------------- */
             /* Authentication middleware                                          */
@@ -313,7 +310,7 @@ final class AppConfig
             /* Simple logging middleware                                          */
             /* ----------------------------------------------------------------- */
             LoggingMiddleware::class    => fn() => new LoggingMiddleware(
-            // you can inject LoggerInterface here if your middleware takes it
+                // you can inject LoggerInterface here if your middleware takes it
             ),
 
             PasswordHasher::class => fn() => new PasswordHasher(),
