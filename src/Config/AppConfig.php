@@ -314,9 +314,11 @@ final class AppConfig
             ),
 
             PasswordHasher::class => fn() => new PasswordHasher(),
-            JwtService::class      => fn($c) => new JwtService(
-                $c->get(MlcConfig::class)->get('auth.jwt_secret'),
-                (int)$c->get(MlcConfig::class)->get('auth.jwt_ttl', 3600)
+            JwtService::class => fn($c) => new JwtService(
+                (string)$c->get(MlcConfig::class)->get('auth.jwt_secret'),
+                (int)$c->get(MlcConfig::class)->get('auth.jwt_ttl', 3600),
+                (int)$c->get(MlcConfig::class)->get('auth.jwt_leeway', 0),
+                (int)$c->get(MlcConfig::class)->get('auth.nbf_skew', 0),
             ),
             AuthService::class     => fn($c) => new AuthService(
                 $c->get(RepositoryFactory::class),
