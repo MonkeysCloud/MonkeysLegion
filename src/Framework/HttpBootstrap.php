@@ -142,7 +142,6 @@ final class HttpBootstrap
 
         // emit
         $c->get(SapiEmitter::class)->emit($res);
-        dd('end of run');
     }
 
     /**
