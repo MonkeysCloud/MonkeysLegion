@@ -105,10 +105,8 @@ final class HttpBootstrap
 
         $logging = $mlc->get('logging', []);
 
-        // Enable debug mode in error handler only if debug/logging is enabled
-        if (self::$errorHandler !== null && !empty($logging['enabled']) && ($logging['stdout']['level'] ?? '') === 'debug') {
-            self::$errorHandler->setDebug(true);
-        }
+        // Enable/Disable debug mode in error handler by looking at debug/logging
+        self::$errorHandler->setDebug(self::$errorHandler !== null && !empty($logging['enabled']) && ($logging['stdout']['level'] ?? '') === 'debug');
 
         if (! empty($logging['php_errors']['enabled'])) {
             // show all errors
