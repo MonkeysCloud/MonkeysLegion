@@ -5,6 +5,8 @@ namespace MonkeysLegion\Config;
 use MonkeysLegion\Config\ConfigLoader;
 use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
 use MonkeysLegion\Core\Logger\MonkeyLogger;
+use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
+use MonkeysLegion\Logger\Factory\LoggerFactory;
 use Monolog\Handler\StreamHandler;
 use Monolog\Logger;
 use Psr\Log\NullLogger;
@@ -62,6 +64,25 @@ class LoggerConfig
             /* Framework logger (MonkeysLegion\Logger\MonkeyLogger)                */
             /* ----------------------------------------------------------------- */
             FrameworkLoggerInterface::class => fn() => new MonkeyLogger(),
+
+            /**
+             * -----------------------------------------------------------------
+             * Monkeys Logger (MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface)
+             * -----------------------------------------------------------------
+             */
+            MonkeysLoggerInterface::class => function () {
+                $config = require base_path('config/logging.php');
+                if (!is_array($config)) $config = [];
+
+                // Recursively normalize any "path" keys
+                array_walk_recursive($config, function (&$value, $key) {
+                    if ($key === 'path' && is_string($value) && $value !== '') {
+                        $value = base_path('var/' . ltrim($value, "/\\"));
+                    }
+                });
+                $factory = new LoggerFactory($config, ($_ENV['APP_ENV'] ?? 'dev'));
+                return $factory->make($config['default']);
+            },
         ];
     }
 }

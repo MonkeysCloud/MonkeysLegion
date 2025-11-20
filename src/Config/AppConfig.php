@@ -26,7 +26,6 @@ use Psr\Http\Message\StreamFactoryInterface;
 use Psr\Http\Message\UploadedFileFactoryInterface;
 use Psr\Http\Message\UriFactoryInterface;
 
-use Psr\Log\LoggerInterface;
 use Psr\SimpleCache\CacheInterface;
 use MonkeysLegion\Http\SimpleFileCache;
 use MonkeysLegion\Http\Factory\HttpFactory;
@@ -38,14 +37,11 @@ use MonkeysLegion\Database\Contracts\ConnectionInterface;
 use MonkeysLegion\Database\MySQL\Connection;
 use MonkeysLegion\Database\Factory\CacheFactory;
 use MonkeysLegion\Database\Factory\ConnectionFactory;
-use MonkeysLegion\DI\Container;
 use MonkeysLegion\Entity\Scanner\EntityScanner;
 
 use MonkeysLegion\Http\{
     CoreRequestHandler,
-    Middleware\ContentNegotiationMiddleware,
     Middleware\ErrorHandlerMiddleware,
-    Middleware\RequestLog,
     RouteRequestHandler,
     Middleware\AuthMiddleware,
     Middleware\LoggingMiddleware,
@@ -75,12 +71,9 @@ use MonkeysLegion\Template\{
 
 use MonkeysLegion\I18n\Translator;
 
-use Prometheus\Storage\APC;               // or Redis
 use MonkeysLegion\Telemetry\{
     MetricsInterface,
     NullMetrics,
-    PrometheusMetrics,
-    StatsDMetrics
 };
 
 use MonkeysLegion\Events\{
@@ -151,7 +144,7 @@ final class AppConfig
             // Example: register a listener right here (commented)
             /*
             App\Listeners\AuditLogger::class => function ($c) use ($lc) {
-                $cb = [$lc->get(LoggerInterface::class), 'info'];
+                $cb = [$lc->get(MonkeysLoggerInterface::class), 'info'];
                 $c->get(ListenerProvider::class)
                    ->add(App\Events\UserDeleted::class, $cb, priority: 10);
 
@@ -310,7 +303,7 @@ final class AppConfig
             /* Simple logging middleware                                          */
             /* ----------------------------------------------------------------- */
             LoggingMiddleware::class    => fn() => new LoggingMiddleware(
-                // you can inject LoggerInterface here if your middleware takes it
+                // you can inject MonkeysLoggerInterface here if your middleware takes it
             ),
 
             PasswordHasher::class => fn() => new PasswordHasher(),

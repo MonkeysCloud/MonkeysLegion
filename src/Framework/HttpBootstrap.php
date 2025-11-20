@@ -6,7 +6,6 @@ namespace MonkeysLegion\Framework;
 
 use MonkeysLegion\Config\AppConfig;
 use MonkeysLegion\Config\LoggerConfig;
-use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
 use MonkeysLegion\Core\Provider\ProviderInterface;
 use MonkeysLegion\Core\Routing\RouteLoader;
 use MonkeysLegion\DI\Container;
@@ -18,13 +17,13 @@ use MonkeysLegion\Http\Emitter\SapiEmitter;
 use MonkeysLegion\Http\Message\ServerRequest;
 use MonkeysLegion\Http\Error\ErrorHandler;
 use MonkeysLegion\Http\Error\Renderer\{PlainTextErrorRenderer, JsonErrorRenderer, HtmlErrorRenderer};
+use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Provider\MailServiceProvider;
 use MonkeysLegion\Mlc\Config as MlcConfig;
 use MonkeysLegion\Router\Router;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
-use Psr\Log\LoggerInterface;
 
 final class HttpBootstrap
 {
@@ -40,14 +39,10 @@ final class HttpBootstrap
         self::bootstrapEnv($root);
 
         // Bootstrap logger early so it's available during container build
-        $lc = self::bootstrapLogger();
+        $logger = self::getAppLogger();
 
         // configure the error handler with a logger
-        /** @var FrameworkLoggerInterface $loggerInterface */
-        $loggerInterface = $lc->get(FrameworkLoggerInterface::class);
-        self::configureErrorHandlerLogger(
-            $loggerInterface
-        );
+        self::configureErrorHandlerLogger($logger);
 
         $b = new ContainerBuilder();
 
@@ -63,20 +58,18 @@ final class HttpBootstrap
         (new FilesServiceProvider())->register($b);
 
         // 4) set up mail logger after container is built
-        MailServiceProvider::setLogger(
-            $lc->get(FrameworkLoggerInterface::class)
-        );
+        MailServiceProvider::setLogger($logger);
 
         // 5) mail provider also onto builder
         MailServiceProvider::register($root, $b);
 
         // 5.1) register any extra providers from composer.json
-        self::registerExtras($b, $root, $lc);
+        self::registerExtras($b, $root, $logger);
 
         // 6) now build the container
         $container = $b->build();
 
-        self::bootstrapLogger($container);
+        // self::getAppLogger($container);
 
         return $container;
     }
@@ -203,29 +196,24 @@ final class HttpBootstrap
         $loaded = true;
     }
 
-    private static function bootstrapLogger(): Container
+    private static function getAppLogger(): MonkeysLoggerInterface
     {
         $b = new ContainerBuilder();
         $b->addDefinitions((new LoggerConfig())());
         $cb = $b->build(); // build the logger container
 
         // Ensure the logger is set up correctly
-        if (!$cb->has(LoggerInterface::class)) {
+        if (!$cb->has(MonkeysLoggerInterface::class)) {
             throw new \RuntimeException('LoggerInterface is not defined in the container.');
         }
 
-        /** @var FrameworkLoggerInterface $logger */
-        $logger = $cb->get(FrameworkLoggerInterface::class);
-        $logger->setLogger($cb->get(LoggerInterface::class))
-            ->setEnvironment((string) ($_ENV['APP_ENV'] ?? 'dev'));
-        return $cb;
+        /** @var MonkeysLoggerInterface $logger */
+        $logger = $cb->get(MonkeysLoggerInterface::class);
+        return $logger;
     }
 
-    private static function registerExtras(ContainerBuilder $b, $root, Container $lc): void
+    private static function registerExtras(ContainerBuilder $b, $root, MonkeysLoggerInterface $logger): void
     {
-        /** @var FrameworkLoggerInterface $logger */
-        $logger = $lc->get(FrameworkLoggerInterface::class);
-
         $composerExtraProviders = [];
         $composerJson = $root . '/composer.json';
         if (is_file($composerJson)) {
@@ -257,7 +245,7 @@ final class HttpBootstrap
     /**
      * Configure the error handler with a logger
      */
-    private static function configureErrorHandlerLogger(FrameworkLoggerInterface $logger): void
+    private static function configureErrorHandlerLogger(MonkeysLoggerInterface $logger): void
     {
         if (self::$errorHandler !== null) {
             self::$errorHandler->useLogger($logger);
