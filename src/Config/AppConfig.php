@@ -58,8 +58,10 @@ use MonkeysLegion\Mlc\{
 };
 
 use MonkeysLegion\Router\{
+    RouteCache,
     RouteCollection,
-    Router
+    Router,
+    UrlGenerator
 };
 
 use MonkeysLegion\Template\{
@@ -93,7 +95,7 @@ use MonkeysLegion\Validation\Middleware\ValidationMiddleware;
 /**  Default DI definitions shipped by the framework.  */
 final class AppConfig
 {
-    public function __invoke(): array // $lc is a Already Built Logger Container
+    public function __invoke(): array
     {
         return [
             ...((new LoggerConfig())()),
@@ -124,14 +126,7 @@ final class AppConfig
             /* ----------------------------------------------------------------- */
             /* Metrics / Telemetry (choose one)                                   */
             /* ----------------------------------------------------------------- */
-            // 1) No-op (default)
             MetricsInterface::class => fn() => new NullMetrics(),
-
-            // 2) Prometheus (APC in dev – swap to Redis in prod)
-            //MetricsInterface::class => fn() => new PrometheusMetrics(new APC()),
-
-            // 3) StatsD
-            //MetricsInterface::class => fn() => new StatsDMetrics('127.0.0.1', 8125),
 
             /* ———————————————————————————————————————————————
             *  Event dispatcher (PSR-14)
@@ -140,17 +135,6 @@ final class AppConfig
             EventDispatcherInterface::class => fn($c) => new EventDispatcher(
                 $c->get(ListenerProvider::class)
             ),
-
-            // Example: register a listener right here (commented)
-            /*
-            App\Listeners\AuditLogger::class => function ($c) use ($lc) {
-                $cb = [$lc->get(MonkeysLoggerInterface::class), 'info'];
-                $c->get(ListenerProvider::class)
-                   ->add(App\Events\UserDeleted::class, $cb, priority: 10);
-
-                return new App\Listeners\AuditLogger();
-            },
-            */
 
             /* ----------------------------------------------------------------- */
             /* .mlc config support                                                */
@@ -162,26 +146,15 @@ final class AppConfig
                 base_path()
             ),
 
-            /* -----------------------------------------------------------------
-             | Dynamic .mlc config loader
-             | – picks up every *.mlc file in config/ at runtime
-             * ---------------------------------------------------------------- */
             MlcConfig::class => static function ($c) {
                 /** @var MlcLoader $loader */
                 $loader = $c->get(MlcLoader::class);
-
-                // 1 grab every *.mlc in the config dir
                 $files = glob(base_path('config/*.mlc')) ?: [];
-
-                // 2 turn "config/foo.mlc" into just "foo"
                 $names = array_map(
                     static fn(string $path) => pathinfo($path, PATHINFO_FILENAME),
                     $files
                 );
-
-                // 3 deterministic order (alpha) so overrides are stable
                 sort($names);
-
                 return $loader->load($names);
             },
 
@@ -202,7 +175,6 @@ final class AppConfig
             ),
 
             Translator::class => fn($c) => new Translator(
-                // fetch locale from env or request (here default 'en')
                 $c->get(MlcConfig::class)->get('app.locale', 'en'),
                 base_path('resources/lang'),
                 'en'
@@ -213,6 +185,7 @@ final class AppConfig
             /* ----------------------------------------------------------------- */
             ConnectionInterface::class => fn() => ConnectionFactory::create(require base_path('config/database.php') ?? []),
             Connection::class => fn() => ConnectionFactory::create(require base_path('config/database.php') ?? []),
+
             /* ----------------------------------------------------------------- */
             /* Query Builder & Repositories                                       */
             /* ----------------------------------------------------------------- */
@@ -231,11 +204,103 @@ final class AppConfig
             ),
 
             /* ----------------------------------------------------------------- */
-            /* Routing                                                             */
+            /* Routing - Enhanced Router Package v2                              */
             /* ----------------------------------------------------------------- */
-            RouteCollection::class    => fn()   => new RouteCollection(),
-            Router::class             => fn($c) => new Router($c->get(RouteCollection::class)),
-            RouteLoader::class        => fn($c) => new RouteLoader(
+
+            /**
+             * Route Collection - stores all registered routes with support for:
+             * - Named routes
+             * - Middleware per route
+             * - Route constraints (int, uuid, slug, alpha, alphanumeric, custom regex)
+             * - Default parameter values
+             * - Domain constraints
+             * - Route metadata (for OpenAPI generation)
+             */
+            RouteCollection::class => fn() => new RouteCollection(),
+
+            /**
+             * Route Cache - enables route caching for production performance.
+             * Cache is stored in var/cache/routes directory.
+             * Enable via routing.cache = true in your .mlc config.
+             */
+            RouteCache::class => fn() => new RouteCache(
+                base_path('var/cache/routes')
+            ),
+
+            /**
+             * Main Router instance with:
+             * - Fluent route registration (get, post, put, delete, patch, options, any, match)
+             * - Route groups with shared prefix, middleware, and constraints
+             * - Controller registration via #[Route] attributes
+             * - Middleware registration and groups
+             * - Custom 404/405 handlers
+             * - URL generation via named routes
+             * 
+             * If route caching is enabled, routes are loaded from cache instead of
+             * being re-registered on each request.
+             */
+            Router::class => static function ($c) {
+                /** @var RouteCollection $collection */
+                $collection = $c->get(RouteCollection::class);
+
+                /** @var RouteCache $cache */
+                $cache = $c->get(RouteCache::class);
+
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                // Check if route caching is enabled (typically in production)
+                $cacheEnabled = (bool) $mlc->get('routing.cache', false);
+
+                if ($cacheEnabled && $cache->has()) {
+                    // Load routes from cache
+                    $cached = $cache->load();
+                    if ($cached !== null) {
+                        $collection->import($cached);
+                    }
+                }
+
+                $router = new Router($collection);
+
+                // Set base URL for absolute URL generation
+                $baseUrl = $mlc->get('app.url', '');
+                if ($baseUrl) {
+                    $router->getUrlGenerator()->setBaseUrl($baseUrl);
+                }
+
+                // Register global middleware if configured
+                $globalMiddleware = $mlc->get('routing.global_middleware', []);
+                foreach ($globalMiddleware as $middleware) {
+                    $router->addGlobalMiddleware($middleware);
+                }
+
+                // Register middleware groups if configured
+                $middlewareGroups = $mlc->get('routing.middleware_groups', []);
+                foreach ($middlewareGroups as $name => $middlewares) {
+                    $router->registerMiddlewareGroup($name, $middlewares);
+                }
+
+                return $router;
+            },
+
+            /**
+             * URL Generator - generates URLs from named routes.
+             * Exposed separately for injection into services, controllers,
+             * and templates that need URL generation without the full Router dependency.
+             * 
+             * Usage: $urlGenerator->generate('users.show', ['id' => 42]);
+             */
+            UrlGenerator::class => fn($c) => $c->get(Router::class)->getUrlGenerator(),
+
+            /**
+             * Route Loader - scans controllers for #[Route] attributes.
+             * Now supports the enhanced route metadata from the new Router package:
+             * - #[RoutePrefix('/api')] on controllers
+             * - #[Route('/users', methods: ['GET'], name: 'users.index')]
+             * - #[Middleware('auth', 'throttle')]
+             * - Inline constraints: /users/{id:int}
+             */
+            RouteLoader::class => fn($c) => new RouteLoader(
                 $c->get(Router::class),
                 $c,
                 base_path('app/Controller'),
@@ -282,8 +347,8 @@ final class AppConfig
             fn($c) => new RateLimitMiddleware(
                 $c->get(ResponseFactoryInterface::class),
                 $c->get(CacheInterface::class),
-                5000,   // limit
-                60     // window (seconds)
+                5000,
+                60
             ),
 
             /* ----------------------------------------------------------------- */
@@ -291,20 +356,15 @@ final class AppConfig
             /* ----------------------------------------------------------------- */
             AuthMiddleware::class => fn($c) => new AuthMiddleware(
                 $c->get(ResponseFactoryInterface::class),
-                // realm FIRST (matches vendor order)
                 'Protected',
-                // token SECOND
                 (string)$c->get(MlcConfig::class)->get('auth.token'),
-                // wildcard-aware public paths
                 $c->get(MlcConfig::class)->get('auth.public_paths', [])
             ),
 
             /* ----------------------------------------------------------------- */
             /* Simple logging middleware                                          */
             /* ----------------------------------------------------------------- */
-            LoggingMiddleware::class    => fn() => new LoggingMiddleware(
-                // you can inject MonkeysLoggerInterface here if your middleware takes it
-            ),
+            LoggingMiddleware::class    => fn() => new LoggingMiddleware(),
 
             PasswordHasher::class => fn() => new PasswordHasher(),
             JwtService::class => fn($c) => new JwtService(
@@ -323,17 +383,10 @@ final class AppConfig
                 $c->get(ResponseFactoryInterface::class)
             ),
 
-            /**
-             * Concrete AuthorizationService instance.
-             * Register policies here if/when you create them.
-             */
             AuthorizationService::class => function () {
                 $svc = new AuthorizationService();
-
-                // example policy registrations — comment-out until you have them
+                // Register policies here when needed
                 // $svc->registerPolicy(App\Entity\Post::class, App\Policy\PostPolicy::class);
-                // $svc->registerPolicy(App\Entity\User::class, App\Policy\UserPolicy::class);
-
                 return $svc;
             },
 
@@ -342,9 +395,6 @@ final class AppConfig
                 $c->get(AuthorizationService::class)
             ),
 
-            /* ----------------------------------------------------------------- */
-            /* User repository + middleware for JWT user extraction             */
-            /* ----------------------------------------------------------------- */
             JwtUserMiddleware::class => fn($c) => new JwtUserMiddleware(
                 $c->get(JwtService::class),
                 $c->get(MlcConfig::class)
@@ -359,15 +409,10 @@ final class AppConfig
                 $c->get(ValidatorInterface::class)
             ),
 
-            /**
-             * Map <router-name ⇒ DTO class>.  Adjust to your routes.
-             * Example assumes you have a CreateUserRequest DTO.
-             */
             ValidationMiddleware::class => fn($c) => new ValidationMiddleware(
                 $c->get(DtoBinder::class),
                 [
                     // 'user_create' => \App\Http\Dto\CreateUserRequest::class,
-                    // 'order_create' => \App\Http\Dto\CreateOrderRequest::class,
                 ]
             ),
 
@@ -389,11 +434,7 @@ final class AppConfig
             MiddlewareDispatcher::class => static function ($c) {
                 /** @var MlcConfig $mlc */
                 $mlc = $c->get(MlcConfig::class);
-
-                // Try reading user‐defined list; fall back to DEFAULT_MIDDLEWARE if empty
                 $ids = $mlc->get('middleware.global', []);
-
-                // Instantiate each middleware from the container
                 $stack = array_map([$c, 'get'], $ids);
 
                 return new MiddlewareDispatcher(
@@ -427,7 +468,6 @@ final class AppConfig
      */
     public static function register(ContainerBuilder $builder): void
     {
-        // invoke the instance and feed its array into the builder
         $builder->addDefinitions(new self()());
     }
 }
