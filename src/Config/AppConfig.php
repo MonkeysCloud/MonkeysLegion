@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Config;
 
+use Exception;
 use Laminas\Diactoros\ServerRequestFactory;
 
 use MonkeysLegion\Auth\AuthService;
@@ -85,15 +86,18 @@ use MonkeysLegion\Http\OpenApi\{
     OpenApiGenerator,
     OpenApiMiddleware
 };
+use MonkeysLegion\Queue\Contracts\QueueInterface;
+use MonkeysLegion\Queue\Factory\QueueFactory;
 use MonkeysLegion\Validation\ValidatorInterface;
 use MonkeysLegion\Validation\AttributeValidator;
 use MonkeysLegion\Validation\DtoBinder;
 use MonkeysLegion\Validation\Middleware\ValidationMiddleware;
+use MonkeysLegion\Queue\Contracts\DispatchableJobInterface;
 
 /**  Default DI definitions shipped by the framework.  */
 final class AppConfig
 {
-    public function __invoke(): array // $lc is a Already Built Logger Container
+    public function __invoke(): array
     {
         return [
             ...((new LoggerConfig())()),
@@ -419,6 +423,51 @@ final class AppConfig
             /* Cache                                                             */
             /* ----------------------------------------------------------------- */
             CacheItemPoolInterface::class => fn() => CacheFactory::create(require base_path('config/cache.php') ?? []),
+
+            /* ----------------------------------------------------------------- */
+            /* Queue & Jobs listening                                                         */
+            /* ----------------------------------------------------------------- */
+            QueueInterface::class => function ($c) {
+                $config = require base_path('config/queue.php') ?? [];
+                try {
+                    $conn = $c->get(ConnectionInterface::class);
+                } catch (Exception) {
+                    $conn = null;
+                }
+                $factory = new QueueFactory($config, $conn);
+                $queueD = $factory->make();
+
+                $c->get(ListenerProvider::class)->add(DispatchableJobInterface::class, function (DispatchableJobInterface $job, int $delay = 0, string $queue = 'default') use ($queueD) {
+                    $reflection = new \ReflectionClass($job);
+                    $constructor = $reflection->getConstructor();
+                    $payload = [];
+
+                    if ($constructor) {
+                        foreach ($constructor->getParameters() as $param) {
+                            $name = $param->getName();
+                            // get value from property if it exists
+                            if ($reflection->hasProperty($name)) {
+                                $prop = $reflection->getProperty($name);
+                                $payload[$name] = $prop->getValue($job);
+                            }
+                        }
+                    }
+
+                    // Build jobData
+                    $jobData = [
+                        'job' => get_class($job),
+                        'payload' => $payload,
+                    ];
+
+                    if ($delay > 0) {
+                        $queueD->later($delay, $jobData, $queue);
+                    } else {
+                        $queueD->push($jobData, $queue);
+                    }
+                }, priority: 10);
+
+                return $queueD;
+            },
         ];
     }
 
