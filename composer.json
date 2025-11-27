@@ -8,7 +8,7 @@
   "require": {
     "monkeyscloud/monkeyslegion-mlc": "^1.0",
     "monkeyscloud/monkeyslegion-template": "^1.0",
-    "monkeyscloud/monkeyslegion-router": "^1.0",
+    "monkeyscloud/monkeyslegion-router": "^2.0",
     "monkeyscloud/monkeyslegion-migration": "^1.0",
     "monkeyscloud/monkeyslegion-http": "^1.0",
     "monkeyscloud/monkeyslegion-entity": "^1.0",
