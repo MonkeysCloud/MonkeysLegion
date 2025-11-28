@@ -22,7 +22,7 @@
     "monkeyscloud/monkeyslegion-validation": "^1.0",
     "monkeyscloud/monkeyslegion-query": "^1.0",
     "monkeyscloud/monkeyslegion-i18n": "^1.0",
-    "monkeyscloud/monkeyslegion-auth": "^2.0@dev",
+    "monkeyscloud/monkeyslegion-auth": "^2.0.x-dev",
     "monkeyscloud/monkeyslegion-mail": "^1.0",
     "monkeyscloud/monkeyslegion-logger": "^1.0",
     "monolog/monolog": "^3.9",
