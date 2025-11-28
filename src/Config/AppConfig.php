@@ -6,13 +6,48 @@ namespace MonkeysLegion\Config;
 
 use Laminas\Diactoros\ServerRequestFactory;
 
-use MonkeysLegion\Auth\AuthService;
-use MonkeysLegion\Auth\AuthService\AuthorizationService;
-use MonkeysLegion\Auth\JwtService;
+/* -------------------------------------------------------------------------
+ * Auth Package (Refactored)
+ * ------------------------------------------------------------------------- */
+use MonkeysLegion\Auth\Service\AuthService;
+use MonkeysLegion\Auth\Service\JwtService;
+use MonkeysLegion\Auth\Service\PasswordHasher;
+use MonkeysLegion\Auth\Service\AuthorizationService;
+use MonkeysLegion\Auth\Service\RedisTokenStorage;
+use MonkeysLegion\Auth\Service\TwoFactorService;
+use MonkeysLegion\Auth\Service\PasswordResetService;
+use MonkeysLegion\Auth\Service\EmailVerificationService;
+
+use MonkeysLegion\Auth\Contract\TokenStorageInterface;
+use MonkeysLegion\Auth\Contract\RateLimiterInterface;
+use MonkeysLegion\Auth\Contract\UserProviderInterface;
+
+use MonkeysLegion\Auth\Middleware\AuthenticationMiddleware;
 use MonkeysLegion\Auth\Middleware\AuthorizationMiddleware;
-use MonkeysLegion\Auth\Middleware\JwtAuthMiddleware;
-use MonkeysLegion\Auth\Middleware\JwtUserMiddleware;
-use MonkeysLegion\Auth\PasswordHasher;
+use MonkeysLegion\Auth\Middleware\RateLimitMiddleware as AuthRateLimitMiddleware;
+
+use MonkeysLegion\Auth\RateLimit\RedisRateLimiter;
+use MonkeysLegion\Auth\RateLimit\CacheRateLimiter;
+use MonkeysLegion\Auth\RateLimit\InMemoryRateLimiter;
+
+use MonkeysLegion\Auth\TwoFactor\TotpProvider;
+use MonkeysLegion\Auth\TwoFactor\TwoFactorService as TwoFactorProviderService;
+
+use MonkeysLegion\Auth\RBAC\RoleRegistry;
+use MonkeysLegion\Auth\RBAC\PermissionChecker;
+use MonkeysLegion\Auth\RBAC\RbacService;
+
+use MonkeysLegion\Auth\Policy\Gate;
+
+use MonkeysLegion\Auth\OAuth\OAuthService;
+use MonkeysLegion\Auth\OAuth\GoogleProvider;
+use MonkeysLegion\Auth\OAuth\GitHubProvider;
+
+use MonkeysLegion\Auth\ApiKey\ApiKeyService;
+
+/* -------------------------------------------------------------------------
+ * Other Framework Imports
+ * ------------------------------------------------------------------------- */
 use MonkeysLegion\Cli\Support\CommandFinder;
 use MonkeysLegion\Core\Middleware\CorsMiddleware;
 use MonkeysLegion\DI\ContainerBuilder;
@@ -207,38 +242,12 @@ final class AppConfig
             /* Routing - Enhanced Router Package v2                              */
             /* ----------------------------------------------------------------- */
 
-            /**
-             * Route Collection - stores all registered routes with support for:
-             * - Named routes
-             * - Middleware per route
-             * - Route constraints (int, uuid, slug, alpha, alphanumeric, custom regex)
-             * - Default parameter values
-             * - Domain constraints
-             * - Route metadata (for OpenAPI generation)
-             */
             RouteCollection::class => fn() => new RouteCollection(),
 
-            /**
-             * Route Cache - enables route caching for production performance.
-             * Cache is stored in var/cache/routes directory.
-             * Enable via routing.cache = true in your .mlc config.
-             */
             RouteCache::class => fn() => new RouteCache(
                 base_path('var/cache/routes')
             ),
 
-            /**
-             * Main Router instance with:
-             * - Fluent route registration (get, post, put, delete, patch, options, any, match)
-             * - Route groups with shared prefix, middleware, and constraints
-             * - Controller registration via #[Route] attributes
-             * - Middleware registration and groups
-             * - Custom 404/405 handlers
-             * - URL generation via named routes
-             * 
-             * If route caching is enabled, routes are loaded from cache instead of
-             * being re-registered on each request.
-             */
             Router::class => static function ($c) {
                 /** @var RouteCollection $collection */
                 $collection = $c->get(RouteCollection::class);
@@ -249,11 +258,9 @@ final class AppConfig
                 /** @var MlcConfig $mlc */
                 $mlc = $c->get(MlcConfig::class);
 
-                // Check if route caching is enabled (typically in production)
                 $cacheEnabled = (bool) $mlc->get('routing.cache', false);
 
                 if ($cacheEnabled && $cache->has()) {
-                    // Load routes from cache
                     $cached = $cache->load();
                     if ($cached !== null) {
                         $collection->import($cached);
@@ -262,19 +269,16 @@ final class AppConfig
 
                 $router = new Router($collection);
 
-                // Set base URL for absolute URL generation
                 $baseUrl = $mlc->get('app.url', '');
                 if ($baseUrl) {
                     $router->getUrlGenerator()->setBaseUrl($baseUrl);
                 }
 
-                // Register global middleware if configured
                 $globalMiddleware = $mlc->get('routing.global_middleware', []);
                 foreach ($globalMiddleware as $middleware) {
                     $router->addGlobalMiddleware($middleware);
                 }
 
-                // Register middleware groups if configured
                 $middlewareGroups = $mlc->get('routing.middleware_groups', []);
                 foreach ($middlewareGroups as $name => $middlewares) {
                     $router->registerMiddlewareGroup($name, $middlewares);
@@ -283,23 +287,8 @@ final class AppConfig
                 return $router;
             },
 
-            /**
-             * URL Generator - generates URLs from named routes.
-             * Exposed separately for injection into services, controllers,
-             * and templates that need URL generation without the full Router dependency.
-             * 
-             * Usage: $urlGenerator->generate('users.show', ['id' => 42]);
-             */
             UrlGenerator::class => fn($c) => $c->get(Router::class)->getUrlGenerator(),
 
-            /**
-             * Route Loader - scans controllers for #[Route] attributes.
-             * Now supports the enhanced route metadata from the new Router package:
-             * - #[RoutePrefix('/api')] on controllers
-             * - #[Route('/users', methods: ['GET'], name: 'users.index')]
-             * - #[Middleware('auth', 'throttle')]
-             * - Inline constraints: /users/{id:int}
-             */
             RouteLoader::class => fn($c) => new RouteLoader(
                 $c->get(Router::class),
                 $c,
@@ -341,7 +330,7 @@ final class AppConfig
             ErrorHandlerMiddleware::class => fn() => new ErrorHandlerMiddleware(),
 
             /* ----------------------------------------------------------------- */
-            /* Rate-limit middleware                                              */
+            /* Rate-limit middleware (framework default)                          */
             /* ----------------------------------------------------------------- */
             RateLimitMiddleware::class =>
             fn($c) => new RateLimitMiddleware(
@@ -352,12 +341,12 @@ final class AppConfig
             ),
 
             /* ----------------------------------------------------------------- */
-            /* Authentication middleware                                          */
+            /* Legacy Authentication middleware (kept for compatibility)          */
             /* ----------------------------------------------------------------- */
             AuthMiddleware::class => fn($c) => new AuthMiddleware(
                 $c->get(ResponseFactoryInterface::class),
                 'Protected',
-                (string)$c->get(MlcConfig::class)->get('auth.token'),
+                (string)$c->get(MlcConfig::class)->get('auth.token', ''),
                 $c->get(MlcConfig::class)->get('auth.public_paths', [])
             ),
 
@@ -366,39 +355,267 @@ final class AppConfig
             /* ----------------------------------------------------------------- */
             LoggingMiddleware::class    => fn() => new LoggingMiddleware(),
 
-            PasswordHasher::class => fn() => new PasswordHasher(),
-            JwtService::class => fn($c) => new JwtService(
-                (string)$c->get(MlcConfig::class)->get('auth.jwt_secret'),
-                (int)$c->get(MlcConfig::class)->get('auth.jwt_ttl', 3600),
-                (int)$c->get(MlcConfig::class)->get('auth.jwt_leeway', 0),
-                (int)$c->get(MlcConfig::class)->get('auth.nbf_skew', 0),
-            ),
-            AuthService::class     => fn($c) => new AuthService(
-                $c->get(RepositoryFactory::class),
-                $c->get(PasswordHasher::class),
-                $c->get(JwtService::class)
-            ),
-            JwtAuthMiddleware::class => fn($c) => new JwtAuthMiddleware(
-                $c->get(JwtService::class),
-                $c->get(ResponseFactoryInterface::class)
-            ),
+            /* =================================================================
+             * 🔐 AUTH PACKAGE - Comprehensive Authentication & Authorization
+             * ================================================================= */
 
-            AuthorizationService::class => function () {
-                $svc = new AuthorizationService();
-                // Register policies here when needed
-                // $svc->registerPolicy(App\Entity\Post::class, App\Policy\PostPolicy::class);
-                return $svc;
+            /* ----------------------------------------------------------------- */
+            /* Password Hasher                                                    */
+            /* ----------------------------------------------------------------- */
+            PasswordHasher::class => static function ($c) {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                $algorithm = match ($mlc->get('auth.password.algorithm', 'default')) {
+                    'bcrypt' => PASSWORD_BCRYPT,
+                    'argon2id' => PASSWORD_ARGON2ID,
+                    default => PASSWORD_DEFAULT,
+                };
+
+                return new PasswordHasher(
+                    algorithm: $algorithm,
+                    cost: (int) $mlc->get('auth.password.cost', 12)
+                );
             },
 
-            AuthorizationMiddleware::class => fn($c) =>
-            new AuthorizationMiddleware(
-                $c->get(AuthorizationService::class)
+            /* ----------------------------------------------------------------- */
+            /* JWT Service                                                        */
+            /* ----------------------------------------------------------------- */
+            JwtService::class => static function ($c) {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                return new JwtService(
+                    secret: (string) $mlc->get('auth.jwt_secret', ''),
+                    accessTtl: (int) $mlc->get('auth.access_ttl', 1800),
+                    refreshTtl: (int) $mlc->get('auth.refresh_ttl', 604800),
+                    leeway: (int) $mlc->get('auth.jwt_leeway', 60),
+                    issuer: $mlc->get('auth.issuer', null),
+                    audience: $mlc->get('auth.audience', null),
+                );
+            },
+
+            /* ----------------------------------------------------------------- */
+            /* Rate Limiter (Auth Package)                                        */
+            /* ----------------------------------------------------------------- */
+            RateLimiterInterface::class => static function ($c) {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                $driver = $mlc->get('auth.rate_limit.driver', 'cache');
+
+                return match ($driver) {
+                    'redis' => new RedisRateLimiter(
+                        $c->get(\Redis::class)
+                    ),
+                    'cache' => new CacheRateLimiter(
+                        $c->get(CacheInterface::class)
+                    ),
+                    default => new InMemoryRateLimiter(),
+                };
+            },
+
+            /* ----------------------------------------------------------------- */
+            /* Token Storage (Blacklist & Refresh Tokens)                         */
+            /* ----------------------------------------------------------------- */
+            TokenStorageInterface::class => static function ($c) {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                $driver = $mlc->get('auth.token_storage.driver', 'memory');
+
+                return match ($driver) {
+                    'redis' => new RedisTokenStorage(
+                        $c->get(\Redis::class),
+                        $mlc->get('auth.token_storage.prefix', 'auth:')
+                    ),
+                    // 'database' => new DatabaseTokenStorage($c->get(ConnectionInterface::class)),
+                    default => new \MonkeysLegion\Auth\Tests\Fixtures\FakeTokenStorage(),
+                };
+            },
+
+            /* ----------------------------------------------------------------- */
+            /* Core Auth Service                                                  */
+            /* ----------------------------------------------------------------- */
+            AuthService::class => static function ($c) {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                return new AuthService(
+                    users: $c->get(UserProviderInterface::class),
+                    hasher: $c->get(PasswordHasher::class),
+                    jwt: $c->get(JwtService::class),
+                    tokenStorage: $c->get(TokenStorageInterface::class),
+                    rateLimiter: $mlc->get('auth.rate_limit.enabled', true)
+                        ? $c->get(RateLimiterInterface::class)
+                        : null,
+                    eventDispatcher: $c->get(EventDispatcherInterface::class),
+                    maxLoginAttempts: (int) $mlc->get('auth.rate_limit.max_attempts', 5),
+                    lockoutSeconds: (int) $mlc->get('auth.rate_limit.lockout_seconds', 900),
+                );
+            },
+
+            /* ----------------------------------------------------------------- */
+            /* Two-Factor Authentication (TOTP)                                   */
+            /* ----------------------------------------------------------------- */
+            TotpProvider::class => fn() => new TotpProvider(),
+
+            TwoFactorService::class => static function ($c) {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                return new TwoFactorService(
+                    provider: $c->get(TotpProvider::class),
+                    users: $c->get(UserProviderInterface::class),
+                    issuer: $mlc->get('auth.two_factor.issuer', 'MonkeysLegion'),
+                    backupCodeCount: (int) $mlc->get('auth.two_factor.backup_codes', 8),
+                );
+            },
+
+            /* ----------------------------------------------------------------- */
+            /* RBAC - Role Registry & Permission Checker                          */
+            /* ----------------------------------------------------------------- */
+            RoleRegistry::class => static function ($c) {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                $registry = new RoleRegistry();
+
+                // Load roles from config
+                $roles = $mlc->get('rbac.roles', []);
+                if (!empty($roles)) {
+                    $registry->registerFromConfig($roles);
+                }
+
+                return $registry;
+            },
+
+            PermissionChecker::class => fn($c) => new PermissionChecker(
+                $c->get(RoleRegistry::class)
             ),
 
-            JwtUserMiddleware::class => fn($c) => new JwtUserMiddleware(
-                $c->get(JwtService::class),
-                $c->get(MlcConfig::class)
+            RbacService::class => fn($c) => new RbacService(
+                $c->get(RoleRegistry::class),
+                $c->get(PermissionChecker::class)
             ),
+
+            /* ----------------------------------------------------------------- */
+            /* Authorization Gate & Service                                       */
+            /* ----------------------------------------------------------------- */
+            Gate::class => static function ($c) {
+                $gate = new Gate();
+
+                // Register policies here or via a PolicyServiceProvider
+                // Example:
+                // $gate->policy(\App\Entity\Post::class, \App\Policy\PostPolicy::class);
+
+                return $gate;
+            },
+
+            AuthorizationService::class => fn($c) => new AuthorizationService(
+                $c->get(Gate::class),
+                $c->get(PermissionChecker::class)
+            ),
+
+            /* ----------------------------------------------------------------- */
+            /* OAuth2 Service                                                     */
+            /* ----------------------------------------------------------------- */
+            OAuthService::class => static function ($c) {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                $oauth = new OAuthService();
+
+                // Register Google provider if enabled
+                if ($mlc->get('oauth.google.enabled', false)) {
+                    $baseUrl = $mlc->get('app.url', '');
+                    $oauth->register(new GoogleProvider(
+                        clientId: $mlc->get('oauth.google.client_id', ''),
+                        clientSecret: $mlc->get('oauth.google.client_secret', ''),
+                        redirectUri: $baseUrl . $mlc->get('oauth.google.redirect_uri', '/oauth/google/callback'),
+                    ));
+                }
+
+                // Register GitHub provider if enabled
+                if ($mlc->get('oauth.github.enabled', false)) {
+                    $baseUrl = $mlc->get('app.url', '');
+                    $oauth->register(new GitHubProvider(
+                        clientId: $mlc->get('oauth.github.client_id', ''),
+                        clientSecret: $mlc->get('oauth.github.client_secret', ''),
+                        redirectUri: $baseUrl . $mlc->get('oauth.github.redirect_uri', '/oauth/github/callback'),
+                    ));
+                }
+
+                return $oauth;
+            },
+
+            /* ----------------------------------------------------------------- */
+            /* API Key Service                                                    */
+            /* ----------------------------------------------------------------- */
+            ApiKeyService::class => fn($c) => new ApiKeyService(
+                // Requires ApiKeyRepositoryInterface implementation
+                // $c->get(ApiKeyRepositoryInterface::class)
+            ),
+
+            /* ----------------------------------------------------------------- */
+            /* Password Reset Service                                             */
+            /* ----------------------------------------------------------------- */
+            PasswordResetService::class => fn($c) => new PasswordResetService(
+                users: $c->get(UserProviderInterface::class),
+                hasher: $c->get(PasswordHasher::class),
+                eventDispatcher: $c->get(EventDispatcherInterface::class),
+            ),
+
+            /* ----------------------------------------------------------------- */
+            /* Email Verification Service                                         */
+            /* ----------------------------------------------------------------- */
+            EmailVerificationService::class => fn($c) => new EmailVerificationService(
+                users: $c->get(UserProviderInterface::class),
+                eventDispatcher: $c->get(EventDispatcherInterface::class),
+            ),
+
+            /* ----------------------------------------------------------------- */
+            /* Authentication Middleware (JWT)                                    */
+            /* ----------------------------------------------------------------- */
+            AuthenticationMiddleware::class => static function ($c) {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                return new AuthenticationMiddleware(
+                    auth: $c->get(AuthService::class),
+                    users: $c->get(UserProviderInterface::class),
+                    publicPaths: $mlc->get('auth.public_paths', ['*']),
+                    responseFactory: $c->get(ResponseFactoryInterface::class),
+                );
+            },
+
+            /* ----------------------------------------------------------------- */
+            /* Authorization Middleware (RBAC + Policies)                         */
+            /* ----------------------------------------------------------------- */
+            AuthorizationMiddleware::class => fn($c) => new AuthorizationMiddleware(
+                authorization: $c->get(AuthorizationService::class),
+                permissions: $c->get(PermissionChecker::class),
+                responseFactory: $c->get(ResponseFactoryInterface::class),
+            ),
+
+            /* ----------------------------------------------------------------- */
+            /* Auth Rate Limit Middleware                                         */
+            /* ----------------------------------------------------------------- */
+            AuthRateLimitMiddleware::class => static function ($c) {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                return new AuthRateLimitMiddleware(
+                    limiter: $c->get(RateLimiterInterface::class),
+                    defaultMaxAttempts: (int) $mlc->get('auth.rate_limit.max_attempts', 60),
+                    defaultDecaySeconds: (int) $mlc->get('auth.rate_limit.lockout_seconds', 60),
+                    responseFactory: $c->get(ResponseFactoryInterface::class),
+                );
+            },
+
+            /* ================================================================= */
+            /* END AUTH PACKAGE                                                  */
+            /* ================================================================= */
 
             /* ----------------------------------------------------------------- */
             /* Validation layer                                                  */
