@@ -209,11 +209,20 @@ final class AppConfig
                 (bool) $c->get(MlcConfig::class)->get('cache.enabled', true)
             ),
 
-            Translator::class => fn($c) => new Translator(
-                $c->get(MlcConfig::class)->get('app.locale', 'en'),
-                base_path('resources/lang'),
-                'en'
-            ),
+            /* ----------------------------------------------------------------- */
+            /* Internationalization (I18n)                                        */
+            /* ----------------------------------------------------------------- */
+            Translator::class => static function ($c) {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                // The Translator constructor parameters based on the repository docs
+                return new Translator(
+                    $mlc->get('app.locale', 'en'),           // Current locale
+                    base_path('resources/lang'),              // Translation files path
+                    $mlc->get('app.fallback_locale', 'en')   // Fallback locale
+                );
+            },
 
             /* ----------------------------------------------------------------- */
             /* Database                                                            */
