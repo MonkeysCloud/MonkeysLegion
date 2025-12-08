@@ -163,6 +163,46 @@ final class AppConfig
             ),
 
             /* ----------------------------------------------------------------- */
+            /* Redis Client (for rate limiting, caching, token storage)          */
+            /* ----------------------------------------------------------------- */
+            \Redis::class => static function ($c) {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                $redis = new \Redis();
+
+                $host = $mlc->get('redis.host', '127.0.0.1');
+                $port = (int) $mlc->get('redis.port', 6379);
+                $timeout = (float) $mlc->get('redis.timeout', 0.0);
+                $database = (int) $mlc->get('redis.database', 0);
+
+                $connected = $redis->connect($host, $port, $timeout);
+
+                if (!$connected) {
+                    throw new \RuntimeException("Failed to connect to Redis at {$host}:{$port}");
+                }
+
+                // Optional authentication
+                $password = $mlc->get('redis.password', null);
+                if ($password !== null && $password !== '') {
+                    $redis->auth($password);
+                }
+
+                // Select database
+                if ($database > 0) {
+                    $redis->select($database);
+                }
+
+                // Optional prefix for all keys
+                $prefix = $mlc->get('redis.prefix', null);
+                if ($prefix !== null && $prefix !== '') {
+                    $redis->setOption(\Redis::OPT_PREFIX, $prefix);
+                }
+
+                return $redis;
+            },
+
+            /* ----------------------------------------------------------------- */
             /* Metrics / Telemetry (choose one)                                   */
             /* ----------------------------------------------------------------- */
             MetricsInterface::class => fn() => new NullMetrics(),

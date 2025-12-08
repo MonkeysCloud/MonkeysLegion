@@ -153,6 +153,26 @@ auth {
     jwt_secret = "${env.JWT_SECRET}"
     access_ttl = 1800
     refresh_ttl = 604800
+
+    rate_limit {
+        driver = "cache"  # Options: "redis", "cache", "memory"
+        max_attempts = 60
+        lockout_seconds = 60
+    }
+
+    token_storage {
+        driver = "memory"  # Options: "redis", "memory"
+        prefix = "auth:"
+    }
+}
+
+redis {
+    host = "127.0.0.1"
+    port = 6379
+    timeout = 0.0
+    database = 0
+    # password = "your-password"  # Optional
+    # prefix = "myapp:"           # Optional key prefix
 }
 ```
 
