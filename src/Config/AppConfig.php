@@ -45,6 +45,10 @@ use MonkeysLegion\Auth\OAuth\GitHubProvider;
 
 use MonkeysLegion\Auth\ApiKey\ApiKeyService;
 
+use MonkeysLegion\Auth\Storage\InMemoryTokenStorage;
+use MonkeysLegion\Auth\Storage\InMemoryUserProvider;
+use MonkeysLegion\Framework\Auth\DatabaseUserProvider;
+
 /* -------------------------------------------------------------------------
  * Other Framework Imports
  * ------------------------------------------------------------------------- */
@@ -425,6 +429,20 @@ final class AppConfig
             },
 
             /* ----------------------------------------------------------------- */
+            /* User Provider                                                      */
+            /* ----------------------------------------------------------------- */
+            UserProviderInterface::class => static function ($c) {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                return new DatabaseUserProvider(
+                    connection: $c->get(ConnectionInterface::class),
+                    table: $mlc->get('auth.users.table', 'users'),
+                    modelClass: $mlc->get('auth.users.model', 'App\\Entity\\User'),
+                );
+            },
+
+            /* ----------------------------------------------------------------- */
             /* Token Storage (Blacklist & Refresh Tokens)                         */
             /* ----------------------------------------------------------------- */
             TokenStorageInterface::class => static function ($c) {
@@ -439,7 +457,7 @@ final class AppConfig
                         $mlc->get('auth.token_storage.prefix', 'auth:')
                     ),
                     // 'database' => new DatabaseTokenStorage($c->get(ConnectionInterface::class)),
-                    default => new \MonkeysLegion\Auth\Tests\Fixtures\FakeTokenStorage(),
+                    default => new InMemoryTokenStorage(),
                 };
             },
 
@@ -458,9 +476,7 @@ final class AppConfig
                     rateLimiter: $mlc->get('auth.rate_limit.enabled', true)
                         ? $c->get(RateLimiterInterface::class)
                         : null,
-                    eventDispatcher: $c->get(EventDispatcherInterface::class),
-                    maxLoginAttempts: (int) $mlc->get('auth.rate_limit.max_attempts', 5),
-                    lockoutSeconds: (int) $mlc->get('auth.rate_limit.lockout_seconds', 900),
+                    events: $c->get(EventDispatcherInterface::class),
                 );
             },
 
@@ -475,9 +491,8 @@ final class AppConfig
 
                 return new TwoFactorService(
                     provider: $c->get(TotpProvider::class),
-                    users: $c->get(UserProviderInterface::class),
+                    events: $c->get(EventDispatcherInterface::class),
                     issuer: $mlc->get('auth.two_factor.issuer', 'MonkeysLegion'),
-                    backupCodeCount: (int) $mlc->get('auth.two_factor.backup_codes', 8),
                 );
             },
 
@@ -533,12 +548,16 @@ final class AppConfig
                 /** @var MlcConfig $mlc */
                 $mlc = $c->get(MlcConfig::class);
 
-                $oauth = new OAuthService();
+                $oauth = new OAuthService(
+                    pdo: $c->get(ConnectionInterface::class)->pdo(),
+                    jwt: $c->get(JwtService::class),
+                    users: $c->get(UserProviderInterface::class),
+                );
 
                 // Register Google provider if enabled
                 if ($mlc->get('oauth.google.enabled', false)) {
                     $baseUrl = $mlc->get('app.url', '');
-                    $oauth->register(new GoogleProvider(
+                    $oauth->registerProvider(new GoogleProvider(
                         clientId: $mlc->get('oauth.google.client_id', ''),
                         clientSecret: $mlc->get('oauth.google.client_secret', ''),
                         redirectUri: $baseUrl . $mlc->get('oauth.google.redirect_uri', '/oauth/google/callback'),
@@ -548,7 +567,7 @@ final class AppConfig
                 // Register GitHub provider if enabled
                 if ($mlc->get('oauth.github.enabled', false)) {
                     $baseUrl = $mlc->get('app.url', '');
-                    $oauth->register(new GitHubProvider(
+                    $oauth->registerProvider(new GitHubProvider(
                         clientId: $mlc->get('oauth.github.client_id', ''),
                         clientSecret: $mlc->get('oauth.github.client_secret', ''),
                         redirectUri: $baseUrl . $mlc->get('oauth.github.redirect_uri', '/oauth/github/callback'),
@@ -561,10 +580,10 @@ final class AppConfig
             /* ----------------------------------------------------------------- */
             /* API Key Service                                                    */
             /* ----------------------------------------------------------------- */
-            ApiKeyService::class => fn($c) => new ApiKeyService(
-                // Requires ApiKeyRepositoryInterface implementation
-                // $c->get(ApiKeyRepositoryInterface::class)
-            ),
+            // ApiKeyService::class => fn($c) => new ApiKeyService(
+            // Requires ApiKeyRepositoryInterface implementation
+            // $c->get(ApiKeyRepositoryInterface::class)
+            // ),
 
             /* ----------------------------------------------------------------- */
             /* Password Reset Service                                             */
@@ -572,7 +591,8 @@ final class AppConfig
             PasswordResetService::class => fn($c) => new PasswordResetService(
                 users: $c->get(UserProviderInterface::class),
                 hasher: $c->get(PasswordHasher::class),
-                eventDispatcher: $c->get(EventDispatcherInterface::class),
+                jwt: $c->get(JwtService::class),
+                events: $c->get(EventDispatcherInterface::class),
             ),
 
             /* ----------------------------------------------------------------- */
@@ -580,7 +600,8 @@ final class AppConfig
             /* ----------------------------------------------------------------- */
             EmailVerificationService::class => fn($c) => new EmailVerificationService(
                 users: $c->get(UserProviderInterface::class),
-                eventDispatcher: $c->get(EventDispatcherInterface::class),
+                jwt: $c->get(JwtService::class),
+                events: $c->get(EventDispatcherInterface::class),
             ),
 
             /* ----------------------------------------------------------------- */
@@ -593,7 +614,7 @@ final class AppConfig
                 return new AuthenticationMiddleware(
                     auth: $c->get(AuthService::class),
                     users: $c->get(UserProviderInterface::class),
-                    publicPaths: $mlc->get('auth.public_paths', ['*']),
+                    publicPaths: $mlc->get('auth.public_paths', []),
                     responseFactory: $c->get(ResponseFactoryInterface::class),
                 );
             },
@@ -694,6 +715,11 @@ final class AppConfig
      */
     public static function register(ContainerBuilder $builder): void
     {
+        // Fix for OAuthService expecting legacy JwtService class
+        if (!class_exists('MonkeysLegion\Auth\JwtService')) {
+            class_alias(\MonkeysLegion\Auth\Service\JwtService::class, 'MonkeysLegion\Auth\JwtService');
+        }
+
         $builder->addDefinitions(new self()());
     }
 }
