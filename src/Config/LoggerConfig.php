@@ -3,8 +3,6 @@
 namespace MonkeysLegion\Config;
 
 use MonkeysLegion\Config\ConfigLoader;
-use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
-use MonkeysLegion\Core\Logger\MonkeyLogger;
 use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Logger\Factory\LoggerFactory;
 use Monolog\Handler\StreamHandler;
@@ -60,10 +58,7 @@ class LoggerConfig
                 return $logger;
             },
 
-            /* ----------------------------------------------------------------- */
-            /* Framework logger (MonkeysLegion\Logger\MonkeyLogger)                */
-            /* ----------------------------------------------------------------- */
-            FrameworkLoggerInterface::class => fn() => new MonkeyLogger(),
+
 
             /**
              * -----------------------------------------------------------------

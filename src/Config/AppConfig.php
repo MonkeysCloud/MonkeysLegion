@@ -624,7 +624,6 @@ final class AppConfig
             },
 
             AuthorizationService::class => fn($c) => new AuthorizationService(
-                $c->get(Gate::class),
                 $c->get(PermissionChecker::class)
             ),
 
