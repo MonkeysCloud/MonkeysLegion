@@ -1,0 +1,38 @@
+# Redis Configuration Example
+# Copy this to your config directory and customize as needed
+
+redis {
+    # Redis server host
+    host = "127.0.0.1"
+    
+    # Redis server port
+    port = 6379
+    
+    # Connection timeout in seconds (0 = no timeout)
+    timeout = 0.0
+    
+    # Redis database number (0-15)
+    database = 0
+    
+    # Optional: Redis password for authentication
+    # password = "your-redis-password"
+    
+    # Optional: Key prefix for all Redis keys
+    # prefix = "myapp:"
+}
+
+# Auth package Redis-based drivers
+auth {
+    # Rate limiting configuration
+    rate_limit {
+        driver = "cache"  # Options: "redis", "cache", "memory"
+        max_attempts = 60
+        lockout_seconds = 60
+    }
+    
+    # Token storage configuration (for JWT blacklist and refresh tokens)
+    token_storage {
+        driver = "memory"  # Options: "redis", "memory"
+        prefix = "auth:"   # Prefix for Redis keys (only used with redis driver)
+    }
+}
