@@ -71,8 +71,26 @@ class LoggerConfig
              * -----------------------------------------------------------------
              */
             MonkeysLoggerInterface::class => function () {
-                $config = require base_path('config/logging.php');
+                $path = base_path('config/logging.php');
+                $config = file_exists($path) ? require $path : [];
                 if (!is_array($config)) $config = [];
+
+                if (!is_array($config) || empty($config)) {
+                    $config = [
+                        'default' => 'stack',
+                        'channels' => [
+                            'stack' => [
+                                'driver' => 'stack',
+                                'channels' => ['single'],
+                            ],
+                            'single' => [
+                                'driver' => 'single',
+                                'path' => 'var/log/monkeyslegion.log',
+                                'level' => 'debug',
+                            ],
+                        ],
+                    ];
+                }
 
                 // Recursively normalize any "path" keys
                 array_walk_recursive($config, function (&$value, $key) {
@@ -81,7 +99,7 @@ class LoggerConfig
                     }
                 });
                 $factory = new LoggerFactory($config, ($_ENV['APP_ENV'] ?? 'dev'));
-                return $factory->make($config['default']);
+                return $factory->make($config['default'] ?? 'stack');
             },
         ];
     }

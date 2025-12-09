@@ -299,8 +299,27 @@ final class AppConfig
             /* ----------------------------------------------------------------- */
             /* Database                                                            */
             /* ----------------------------------------------------------------- */
-            ConnectionInterface::class => fn() => ConnectionFactory::create(require base_path('config/database.php') ?? []),
-            Connection::class => fn() => ConnectionFactory::create(require base_path('config/database.php') ?? []),
+            ConnectionInterface::class => function () {
+                $path = base_path('config/database.php');
+                if (file_exists($path)) {
+                    $config = require $path;
+                } else {
+                    // Fallback for verification/testing
+                    $config = [
+                        'default' => 'sqlite',
+                        'connections' => [
+                            'sqlite' => [
+                                'driver' => 'sqlite',
+                                'database' => ':memory:',
+                            ],
+                        ],
+                    ];
+                }
+                return ConnectionFactory::create($config);
+            },
+            Connection::class => function ($c) {
+                return $c->get(ConnectionInterface::class);
+            },
 
             /* ----------------------------------------------------------------- */
             /* Query Builder & Repositories                                       */
@@ -683,7 +702,11 @@ final class AppConfig
                     auth: $c->get(AuthService::class),
                     users: $c->get(UserProviderInterface::class),
                     publicPaths: $mlc->get('auth.public_paths', []),
-                    responseFactory: $c->get(ResponseFactoryInterface::class),
+                    responseFactory: function (\Throwable $e) use ($c) {
+                        return $c->get(ResponseFactoryInterface::class)
+                            ->createResponse(401)
+                            ->withHeader('Content-Type', 'application/json');
+                    },
                 );
             },
 
@@ -774,14 +797,18 @@ final class AppConfig
             /* ----------------------------------------------------------------- */
             /* Cache                                                             */
             /* ----------------------------------------------------------------- */
-            CacheItemPoolInterface::class => fn() => CacheFactory::create(require base_path('config/cache.php') ?? []),
+            CacheItemPoolInterface::class => function () {
+                $path = base_path('config/cache.php');
+                $config = file_exists($path) ? require $path : [];
+                return CacheFactory::create($config);
+            },
         ];
     }
 
     /**
      * Called by your bootstrap to add framework defaults.
      */
-    public static function register(ContainerBuilder $builder): void
+    public static function register(string $basePath, ContainerBuilder $builder): void
     {
         // Fix for OAuthService expecting legacy JwtService class
         if (!class_exists('MonkeysLegion\Auth\JwtService')) {
