@@ -111,6 +111,7 @@ use MonkeysLegion\Template\{
 };
 
 use MonkeysLegion\I18n\Translator;
+use MonkeysLegion\I18n\TranslatorFactory;
 
 use MonkeysLegion\Telemetry\{
     MetricsInterface,
@@ -260,12 +261,13 @@ final class AppConfig
                 /** @var MlcConfig $mlc */
                 $mlc = $c->get(MlcConfig::class);
 
-                // The Translator constructor parameters based on the repository docs
-                return new Translator(
-                    $mlc->get('app.locale', 'en'),           // Current locale
-                    base_path('resources/lang'),              // Translation files path
-                    $mlc->get('app.fallback_locale', 'en')   // Fallback locale
-                );
+                // Use factory to configure translator with file loader and cache
+                return TranslatorFactory::create([
+                    'locale'   => $mlc->get('app.locale', 'en'),
+                    'fallback' => $mlc->get('app.fallback_locale', 'en'),
+                    'path'     => base_path('resources/lang'),
+                    'cache'    => $mlc->get('cache.enabled', true) ? $c->get(CacheInterface::class) : null,
+                ]);
             },
 
             /* ----------------------------------------------------------------- */
