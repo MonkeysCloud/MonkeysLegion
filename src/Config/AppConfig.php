@@ -112,6 +112,9 @@ use MonkeysLegion\Template\{
 
 use MonkeysLegion\I18n\Translator;
 use MonkeysLegion\I18n\TranslatorFactory;
+use MonkeysLegion\I18n\LocaleManager;
+use MonkeysLegion\I18n\Middleware\LocaleMiddleware;
+use MonkeysLegion\Framework\Middleware\CallableMiddlewareAdapter;
 
 use MonkeysLegion\Telemetry\{
     MetricsInterface,
@@ -268,6 +271,29 @@ final class AppConfig
                     'path'     => base_path('resources/lang'),
                     'cache'    => $mlc->get('cache.enabled', true) ? $c->get(CacheInterface::class) : null,
                 ]);
+            },
+
+            LocaleManager::class => static function ($c) {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                return TranslatorFactory::createLocaleManager([
+                    'default'   => $mlc->get('app.locale', 'en'),
+                    'fallback'  => $mlc->get('app.fallback_locale', 'en'),
+                    'supported' => $mlc->get('app.supported_locales', ['en']),
+                    'detectors' => $mlc->get('app.locale_detectors', ['url', 'session', 'cookie', 'header']),
+                ]);
+            },
+
+            // Hack: Override the LocaleMiddleware service ID to return a PSR-15 adapter
+            // This is necessary because LocaleMiddleware does not implement MiddlewareInterface
+            LocaleMiddleware::class => static function ($c) {
+                $localeMiddleware = new LocaleMiddleware(
+                    $c->get(LocaleManager::class),
+                    $c->get(Translator::class)
+                );
+
+                return new CallableMiddlewareAdapter($localeMiddleware);
             },
 
             /* ----------------------------------------------------------------- */
