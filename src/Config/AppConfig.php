@@ -712,11 +712,23 @@ final class AppConfig
             /* ----------------------------------------------------------------- */
             /* Authorization Middleware (RBAC + Policies)                         */
             /* ----------------------------------------------------------------- */
-            AuthorizationMiddleware::class => fn($c) => new AuthorizationMiddleware(
-                authorization: $c->get(AuthorizationService::class),
-                permissions: $c->get(PermissionChecker::class),
-                responseFactory: $c->get(ResponseFactoryInterface::class),
-            ),
+            AuthorizationMiddleware::class => static function ($c) {
+                return new AuthorizationMiddleware(
+                    authorization: $c->get(AuthorizationService::class),
+                    permissions: $c->get(PermissionChecker::class),
+                    responseFactory: function (\Throwable $e) use ($c) {
+                        $code = match (true) {
+                            $e instanceof \MonkeysLegion\Auth\Exception\UnauthorizedException => 401,
+                            $e instanceof \MonkeysLegion\Auth\Exception\ForbiddenException => 403,
+                            default => 500,
+                        };
+
+                        return $c->get(ResponseFactoryInterface::class)
+                            ->createResponse($code)
+                            ->withHeader('Content-Type', 'application/json');
+                    },
+                );
+            },
 
             /* ----------------------------------------------------------------- */
             /* Auth Rate Limit Middleware                                         */
