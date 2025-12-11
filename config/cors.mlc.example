@@ -1,0 +1,9 @@
+# MonkeysLegion CORS Configuration
+# Copy to cors.mlc and adjust values
+
+cors.allow_origin      = "*"
+cors.allow_methods     = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+cors.allow_headers     = ["Content-Type", "Authorization", "X-Requested-With"]
+cors.expose_headers    = []
+cors.allow_credentials = false
+cors.max_age           = 0

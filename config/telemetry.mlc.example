@@ -1,0 +1,14 @@
+# MonkeysLegion Telemetry Configuration
+# Copy to telemetry.mlc and adjust values
+
+# Metrics
+telemetry.metrics.enabled   = true
+telemetry.metrics.driver    = "prometheus"
+telemetry.metrics.namespace = "monkeyslegion"
+
+# Tracing
+telemetry.tracing.enabled      = true
+telemetry.tracing.driver       = "zipkin"
+telemetry.tracing.service_name = "monkeyslegion-app"
+telemetry.tracing.sampler.type = "const"
+telemetry.tracing.sampler.param = 1

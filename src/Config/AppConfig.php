@@ -5,10 +5,6 @@ declare(strict_types=1);
 namespace MonkeysLegion\Config;
 
 use Laminas\Diactoros\ServerRequestFactory;
-
-/* -------------------------------------------------------------------------
- * Auth Package (Refactored)
- * ------------------------------------------------------------------------- */
 use MonkeysLegion\Auth\Service\AuthService;
 use MonkeysLegion\Auth\Service\JwtService;
 use MonkeysLegion\Auth\Service\PasswordHasher;
@@ -58,6 +54,8 @@ use MonkeysLegion\DI\ContainerBuilder;
 use MonkeysLegion\Query\QueryBuilder;
 use MonkeysLegion\Repository\RepositoryFactory;
 
+use Psr\Log\LoggerInterface;
+
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ServerRequestInterface;
@@ -71,10 +69,11 @@ use MonkeysLegion\Http\Factory\HttpFactory;
 
 use MonkeysLegion\Cli\CliKernel;
 use MonkeysLegion\Core\Routing\RouteLoader;
-use MonkeysLegion\Database\Cache\Contracts\CacheItemPoolInterface;
+use MonkeysLegion\Database\Cache\Contracts\CacheInterface as DatabaseCacheInterface;
 use MonkeysLegion\Database\Contracts\ConnectionInterface;
 use MonkeysLegion\Database\MySQL\Connection;
-use MonkeysLegion\Database\Factory\CacheFactory;
+use MonkeysLegion\Cache\CacheManager;
+use MonkeysLegion\Database\Cache\CacheManagerBridge;
 use MonkeysLegion\Database\Factory\ConnectionFactory;
 use MonkeysLegion\Entity\Scanner\EntityScanner;
 
@@ -116,10 +115,11 @@ use MonkeysLegion\I18n\LocaleManager;
 use MonkeysLegion\I18n\Middleware\LocaleMiddleware;
 use MonkeysLegion\Framework\Middleware\CallableMiddlewareAdapter;
 
-use MonkeysLegion\Telemetry\{
-    MetricsInterface,
-    NullMetrics,
-};
+use MonkeysLegion\Telemetry\Factory\TelemetryFactory;
+use MonkeysLegion\Telemetry\Logging\TelemetryLogger;
+use MonkeysLegion\Telemetry\Logging\TracingContextProvider;
+use MonkeysLegion\Telemetry\Metrics\MetricsInterface;
+use MonkeysLegion\Telemetry\Tracing\TracerInterface;
 
 use MonkeysLegion\Events\{
     ListenerProvider,
@@ -207,9 +207,26 @@ final class AppConfig
             },
 
             /* ----------------------------------------------------------------- */
-            /* Metrics / Telemetry (choose one)                                   */
+            /* Metrics / Telemetry (v2.0)                                         */
             /* ----------------------------------------------------------------- */
-            MetricsInterface::class => fn() => new NullMetrics(),
+            MetricsInterface::class => static function ($c) {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+                return TelemetryFactory::createMetrics($mlc->get('telemetry.metrics', []));
+            },
+
+            TracerInterface::class => static function ($c) {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+                return TelemetryFactory::createTracer($mlc->get('telemetry.tracing', []));
+            },
+
+            TelemetryLogger::class => static function ($c) {
+                return new TelemetryLogger(
+                    logger: $c->get(LoggerInterface::class),
+                    contextProvider: new TracingContextProvider($c->get(TracerInterface::class))
+                );
+            },
 
             /* ———————————————————————————————————————————————
             *  Event dispatcher (PSR-14)
@@ -454,10 +471,6 @@ final class AppConfig
             /* Simple logging middleware                                          */
             /* ----------------------------------------------------------------- */
             LoggingMiddleware::class    => fn() => new LoggingMiddleware(),
-
-            /* =================================================================
-             * 🔐 AUTH PACKAGE - Comprehensive Authentication & Authorization
-             * ================================================================= */
 
             /* ----------------------------------------------------------------- */
             /* Password Hasher                                                    */
@@ -745,10 +758,6 @@ final class AppConfig
                 );
             },
 
-            /* ================================================================= */
-            /* END AUTH PACKAGE                                                  */
-            /* ================================================================= */
-
             /* ----------------------------------------------------------------- */
             /* Validation layer                                                  */
             /* ----------------------------------------------------------------- */
@@ -808,10 +817,13 @@ final class AppConfig
             /* ----------------------------------------------------------------- */
             /* Cache                                                             */
             /* ----------------------------------------------------------------- */
-            CacheItemPoolInterface::class => function () {
-                $path = base_path('config/cache.php');
-                $config = file_exists($path) ? require $path : [];
-                return CacheFactory::create($config);
+            DatabaseCacheInterface::class => function ($c) {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+                $config = $mlc->get('cache', []);
+
+                $manager = new CacheManager($config);
+                return new CacheManagerBridge($manager, $config['prefix'] ?? '');
             },
         ];
     }

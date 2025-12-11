@@ -1,0 +1,16 @@
+# MonkeysLegion Middleware Configuration
+# Copy to middleware.mlc and adjust values
+
+# Global middleware stack (executed in order for every request)
+middleware.global = [
+    "MonkeysLegion\\Core\\Middleware\\CorsMiddleware",
+    "MonkeysLegion\\Http\\Middleware\\ErrorHandlerMiddleware",
+    "MonkeysLegion\\Http\\Middleware\\LoggingMiddleware"
+]
+
+# Uncomment additional middleware as needed:
+# "MonkeysLegion\\Validation\\Middleware\\ValidationMiddleware"
+# "MonkeysLegion\\Http\\Middleware\\RateLimitMiddleware"
+# "MonkeysLegion\\Auth\\Middleware\\AuthenticationMiddleware"
+# "MonkeysLegion\\Auth\\Middleware\\AuthorizationMiddleware"
+# "MonkeysLegion\\I18n\\Middleware\\LocaleMiddleware"

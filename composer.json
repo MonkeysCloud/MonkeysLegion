@@ -17,7 +17,7 @@
     "monkeyscloud/monkeyslegion-database": "^1.0",
     "monkeyscloud/monkeyslegion-core": "^1.0",
     "monkeyscloud/monkeyslegion-cli": "^1.0",
-    "monkeyscloud/monkeyslegion-telemetry": "^1.0",
+    "monkeyscloud/monkeyslegion-telemetry": "^2.0",
     "monkeyscloud/monkeyslegion-events": "^1.0",
     "monkeyscloud/monkeyslegion-validation": "^1.0",
     "monkeyscloud/monkeyslegion-query": "^1.0",

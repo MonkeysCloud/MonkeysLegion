@@ -1,0 +1,49 @@
+# MonkeysLegion Authentication Configuration
+# Copy to auth.mlc and adjust values
+
+# JWT Signing
+auth.jwt_secret    = env("AUTH_JWT_SECRET", "change_me_to_a_secure_random_string")
+auth.access_ttl    = 1800
+auth.refresh_ttl   = 604800
+auth.jwt_leeway    = 60
+auth.issuer        = "monkeyslegion"
+auth.audience      = "monkeyslegion_client"
+
+# Password Hashing
+auth.password.algorithm = "bcrypt"
+auth.password.cost      = 12
+
+# User Provider
+auth.users.table = "users"
+auth.users.model = "App\\Entity\\User"
+
+# Token Storage (Blacklist/Refresh)
+auth.token_storage.driver = "redis"
+auth.token_storage.prefix = "auth:"
+
+# Rate Limiting
+auth.rate_limit.driver         = "redis"
+auth.rate_limit.enabled        = true
+auth.rate_limit.max_attempts   = 60
+auth.rate_limit.lockout_seconds = 60
+
+# Two Factor
+auth.two_factor.issuer = "MonkeysLegion"
+
+# Legacy / Compatibility
+auth.token = ""
+auth.public_paths = ["/login", "/register", "/health"]
+
+# RBAC
+rbac.roles = []
+
+# OAuth Providers (uncomment and configure as needed)
+# oauth.google.enabled       = true
+# oauth.google.client_id     = env("OAUTH_GOOGLE_CLIENT_ID", "")
+# oauth.google.client_secret = env("OAUTH_GOOGLE_CLIENT_SECRET", "")
+# oauth.google.redirect_uri  = "/oauth/google/callback"
+
+# oauth.github.enabled       = true
+# oauth.github.client_id     = env("OAUTH_GITHUB_CLIENT_ID", "")
+# oauth.github.client_secret = env("OAUTH_GITHUB_CLIENT_SECRET", "")
+# oauth.github.redirect_uri  = "/oauth/github/callback"

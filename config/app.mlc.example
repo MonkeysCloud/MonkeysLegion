@@ -1,0 +1,13 @@
+# MonkeysLegion Application Configuration
+# Copy to app.mlc and adjust values
+
+app.url              = env("APP_URL", "http://localhost:8080")
+app.locale           = "en"
+app.fallback_locale  = "en"
+app.supported_locales = ["en", "es"]
+app.locale_detectors = ["url", "session", "cookie", "header"]
+
+# Routing configuration
+routing.cache = false
+routing.global_middleware = []
+routing.middleware_groups = {}
