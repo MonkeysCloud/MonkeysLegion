@@ -6,7 +6,7 @@
   "minimum-stability": "dev",
   "prefer-stable": true,
   "require": {
-    "monkeyscloud/monkeyslegion-mlc": "^1.0",
+    "monkeyscloud/monkeyslegion-mlc": "^2.0",
     "monkeyscloud/monkeyslegion-template": "^1.0",
     "monkeyscloud/monkeyslegion-router": "^2.0",
     "monkeyscloud/monkeyslegion-migration": "^1.0",
