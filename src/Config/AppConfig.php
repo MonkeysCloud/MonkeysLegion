@@ -243,7 +243,8 @@ final class AppConfig
             MlcLoader::class                    => fn($c) => new MlcLoader(
                 $c->get(MlcParser::class),
                 base_path('config'),
-                base_path()
+                base_path(),
+                new SimpleFileCache(base_path('var/cache/mlc'))
             ),
 
             MlcConfig::class => static function ($c) {
