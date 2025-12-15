@@ -145,10 +145,6 @@ use MonkeysLegion\Files\Upload\ChunkedUploadManager;
 use MonkeysLegion\Files\Storage\LocalStorage;
 use MonkeysLegion\Files\RateLimit\UploadRateLimiter;
 use MonkeysLegion\Files\Maintenance\GarbageCollector;
-use MonkeysLegion\Files\Cdn\CdnUrlGenerator;
-use MonkeysLegion\Files\Security\VirusScannerInterface;
-use MonkeysLegion\Files\Security\ClamAvScanner;
-use MonkeysLegion\Files\Security\HttpVirusScanner;
 
 /**  Default DI definitions shipped by the framework.  */
 final class AppConfig
