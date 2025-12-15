@@ -742,10 +742,12 @@ final class AppConfig
             /* Authorization Middleware (RBAC + Policies)                         */
             /* ----------------------------------------------------------------- */
             AuthorizationMiddleware::class => static function ($c) {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
                 return new AuthorizationMiddleware(
                     authorization: $c->get(AuthorizationService::class),
                     permissions: $c->get(PermissionChecker::class),
-                    publicPaths: [],
+                    publicPaths: $mlc->get('auth.public_paths', []),
                     responseFactory: function (\Throwable $e) use ($c) {
                         $code = match (true) {
                             $e instanceof \MonkeysLegion\Auth\Exception\UnauthorizedException => 401,
