@@ -10,7 +10,7 @@ use MonkeysLegion\Core\Provider\ProviderInterface;
 use MonkeysLegion\Core\Routing\RouteLoader;
 use MonkeysLegion\DI\Container;
 use MonkeysLegion\DI\ContainerBuilder;
-use MonkeysLegion\Files\Support\ServiceProvider as FilesServiceProvider;
+use MonkeysLegion\Files\FilesServiceProvider;
 use MonkeysLegion\Http\CoreRequestHandler;
 use MonkeysLegion\Http\RouteRequestHandler;
 use MonkeysLegion\Http\Emitter\SapiEmitter;
@@ -54,22 +54,20 @@ final class HttpBootstrap
             $b->addDefinitions(require $root . '/config/app.php');
         }
 
-        // 3) register the Files provider onto the *builder*
-        (new FilesServiceProvider())->register($b);
-
-        // 4) set up mail logger after container is built
+        // 3) set up mail logger after container is built
         MailServiceProvider::setLogger($logger);
 
-        // 5) mail provider also onto builder
+        // 4) mail provider also onto builder
         MailServiceProvider::register($root, $b);
 
-        // 5.1) register any extra providers from composer.json
+        // 4.1) register any extra providers from composer.json
         self::registerExtras($b, $root, $logger);
 
-        // 6) now build the container
+        // 5) now build the container
         $container = $b->build();
 
-        // self::getAppLogger($container);
+        // 6) register the Files provider with the built container
+        (new FilesServiceProvider($container))->register();
 
         return $container;
     }
@@ -77,14 +75,15 @@ final class HttpBootstrap
     /**
      * Run the whole HTTP flow.
      *
-     * @param string        $root        project root (usually ML_BASE_PATH)
-     * @param null|callable $customizer  optional closure to customise the run
+     * @param string $root project root (usually ML_BASE_PATH)
+     * @param null|callable $customizer optional closure to customise the run
      *                                   function (
      *                                   ContainerInterface $c,
      *                                   ServerRequest      $req,
      *                                   Router             $router,
      *                                   ResponseFactoryInterface $rf
      *                                   ): ResponseInterface
+     * @throws \Throwable
      */
     public static function run(string $root, ?callable $customizer = null): void
     {
@@ -94,8 +93,6 @@ final class HttpBootstrap
         // Configure PHP-native error logging based on .mlc settings
         /** @var MlcConfig $mlc */
         $mlc     = $c->get(MlcConfig::class);
-        $logging = $mlc->get('logging', []);
-
         $logging = $mlc->get('logging', []);
 
         // Enable/Disable debug mode in error handler by looking at debug/logging
@@ -113,7 +110,7 @@ final class HttpBootstrap
                 'error_log',
                 base_path(
                     $logging['php_errors']['file']
-                        ?? 'var/log/php-errors.log'
+                    ?? 'var/log/php-errors.log'
                 )
             );
         }
@@ -142,7 +139,7 @@ final class HttpBootstrap
     {
         static $registered = false;
         if ($registered) {
-            return; // Prevent double registration
+            return;
         }
 
         self::$errorHandler = new ErrorHandler();
@@ -159,7 +156,9 @@ final class HttpBootstrap
         $registered = true;
     }
 
-    /** Default PSR-15 pipeline driven by middleware.global */
+    /** Default PSR-15 pipeline driven by middleware.global
+     * @throws \Throwable
+     */
     private static function defaultPipeline(
         ContainerInterface        $c,
         ServerRequest             $req,
@@ -184,13 +183,13 @@ final class HttpBootstrap
     private static function bootstrapEnv(string $root): void
     {
         static $loaded = false;
-        if ($loaded) {            // idempotent
+        if ($loaded) {
             return;
         }
 
-        $envBootstrap = $root . '/bootstrap/env.php';   // <-- your file
+        $envBootstrap = $root . '/bootstrap/env.php';
         if (is_file($envBootstrap)) {
-            require $envBootstrap;                    // loads vlucas/phpdotenv
+            require $envBootstrap;
         }
 
         $loaded = true;
@@ -200,7 +199,7 @@ final class HttpBootstrap
     {
         $b = new ContainerBuilder();
         $b->addDefinitions((new LoggerConfig())());
-        $cb = $b->build(); // build the logger container
+        $cb = $b->build();
 
         // Ensure the logger is set up correctly
         if (!$cb->has(MonkeysLoggerInterface::class)) {
