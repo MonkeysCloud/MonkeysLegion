@@ -856,11 +856,11 @@ final class AppConfig
                 ]);
 
                 return new LocalStorage(
-                    basePath: $diskConfig['root'] ?? base_path('storage/files'),
+                    basePath: $diskConfig['root'],
                     baseUrl: $diskConfig['url'] ?? '/storage/files',
                     directoryPermissions: $diskConfig['permissions']['dir'] ?? 0755,
                     filePermissions: $diskConfig['permissions']['file'] ?? 0644,
-                    visibility: $diskConfig['visibility'] ?? 'public',
+                    visibility: $diskConfig['visibility'],
                 );
             },
 
