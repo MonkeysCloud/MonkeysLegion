@@ -877,7 +877,7 @@ final class AppConfig
 
                 // Set cache if available
                 $cacheConfig = $mlc->get('cache', []);
-                if (!empty($cacheConfig)) {
+                if (!empty($cacheConfig) && isset($cacheConfig['driver'])) {
                     $cacheManager = new CacheManager($cacheConfig);
                     $manager->setCache($cacheManager->store());
                 }
