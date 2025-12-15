@@ -846,23 +846,6 @@ final class AppConfig
             /* ----------------------------------------------------------------- */
             /* Files Package                                                      */
             /* ----------------------------------------------------------------- */
-            FilesServiceProvider::class => static function ($c) {
-                /** @var MlcConfig $mlc */
-                $mlc = $c->get(MlcConfig::class);
-                
-                $provider = new FilesServiceProvider(
-                    container: $c,
-                    config: $mlc->get('files', []),
-                    cacheManager: new CacheManager($mlc->get('cache', [])),
-                    dbConnection: $c->get(ConnectionInterface::class),
-                    logger: $c->get(LoggerInterface::class),
-                );
-                
-                $provider->register();
-                $provider->boot();
-                
-                return $provider;
-            },
 
             StorageInterface::class => static function ($c) {
                 /** @var MlcConfig $mlc */
