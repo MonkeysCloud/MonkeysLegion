@@ -146,6 +146,14 @@ use MonkeysLegion\Files\Storage\LocalStorage;
 use MonkeysLegion\Files\RateLimit\UploadRateLimiter;
 use MonkeysLegion\Files\Maintenance\GarbageCollector;
 
+use MonkeysLegion\Queue\Factory\QueueFactory;
+use MonkeysLegion\Queue\Dispatcher\QueueDispatcher;
+use MonkeysLegion\Queue\Contracts\QueueDispatcherInterface;
+use MonkeysLegion\Queue\Contracts\QueueInterface;
+use MonkeysLegion\Queue\Batch\BatchRepository;
+use MonkeysLegion\Queue\Events\QueueEventDispatcher;
+use MonkeysLegion\Queue\Worker\Worker;
+
 /**  Default DI definitions shipped by the framework.  */
 final class AppConfig
 {
@@ -631,8 +639,7 @@ final class AppConfig
             ),
 
             RbacService::class => fn($c) => new RbacService(
-                $c->get(RoleRegistry::class),
-                $c->get(PermissionChecker::class)
+                $c->get(ConnectionInterface::class)->pdo()
             ),
 
             /* ----------------------------------------------------------------- */
@@ -934,7 +941,7 @@ final class AppConfig
                 $mlc = $c->get(MlcConfig::class);
 
                 return new UploadRateLimiter(
-                    cache: (new CacheManager($mlc->get('cache', [])))->store(),
+                    cache: new CacheManager($mlc->get('cache', [])),
                     maxUploadsPerMinute: (int) $mlc->get('files.rate_limiting.uploads_per_minute', 10),
                     maxBytesPerHour: (int) $mlc->get('files.rate_limiting.bytes_per_hour', 104857600),
                     maxConcurrentUploads: (int) $mlc->get('files.rate_limiting.concurrent_uploads', 3),
@@ -956,6 +963,61 @@ final class AppConfig
                         'unused_conversions_days' => (int) $mlc->get('files.garbage_collection.unused_conversions_days', 7),
                     ],
                     logger: $c->get(LoggerInterface::class),
+                );
+            },
+
+            /* ----------------------------------------------------------------- */
+            /* Queue Package                                                      */
+            /* ----------------------------------------------------------------- */
+
+            QueueFactory::class => static function ($c) {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                return new QueueFactory(
+                    config: $mlc->get('queue', []),
+                    dbConnection: $c->get(ConnectionInterface::class)
+                );
+            },
+
+            QueueInterface::class => fn($c) => $c->get(QueueFactory::class)->make(),
+
+            BatchRepository::class => static function ($c) {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+                return new BatchRepository(
+                    connection: $c->get(ConnectionInterface::class),
+                    table: $mlc->get('queue.batch_table', 'job_batches')
+                );
+            },
+
+
+            QueueEventDispatcher::class => fn() => new QueueEventDispatcher(),
+
+            QueueDispatcherInterface::class => static function ($c) {
+                return new QueueDispatcher(
+                    queueDriver: $c->get(QueueInterface::class),
+                    batchRepository: $c->get(BatchRepository::class)
+                );
+            },
+
+            // Alias for direct injection
+            QueueDispatcher::class => fn($c) => $c->get(QueueDispatcherInterface::class),
+
+            Worker::class => static function ($c) {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+                $config = $mlc->get('queue.worker', []);
+
+                return new Worker(
+                    queue: $c->get(QueueInterface::class),
+                    sleep: (int) ($config['sleep'] ?? 3),
+                    maxTries: (int) ($config['max_tries'] ?? 3),
+                    memory: (int) ($config['memory'] ?? 128),
+                    timeout: (int) ($config['timeout'] ?? 60),
+                    delayedCheckInterval: (int) ($config['delayed_check_interval'] ?? 30),
+                    eventDispatcher: $c->get(QueueEventDispatcher::class),
+                    batchRepository: $c->get(BatchRepository::class)
                 );
             },
         ];
