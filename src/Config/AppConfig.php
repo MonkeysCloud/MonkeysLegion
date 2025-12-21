@@ -992,7 +992,6 @@ final class AppConfig
                 );
             },
 
-
             QueueEventDispatcher::class => fn() => new QueueEventDispatcher(),
 
             QueueDispatcherInterface::class => static function ($c) {
