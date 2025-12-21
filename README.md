@@ -18,9 +18,12 @@
 - **📝 Validation** - Attribute-based validation with DTO binding
 - **🌍 Internationalization** - Multi-language support with database and file loaders
 - **📧 Email Service** - SMTP and API-based email delivery
-- **📊 Telemetry & Monitoring** - Built-in metrics and logging capabilities
+- **📊 Telemetry & Monitoring** - Metrics, Distributed Tracing and structured logging
 - **🎪 Event System** - PSR-14 event dispatcher for decoupled architecture
 - **💾 Caching** - Multiple cache backends (Redis, File, In-Memory)
+- **📨 Queue System** - Robust background job processing with workers
+- **📁 File Management** - Unified file storage and image processing
+- **📚 OpenAPI** - Auto-generated API documentation
 - **🔄 CLI Tools** - Powerful command-line interface for development tasks
 
 ## 📦 Included Packages
@@ -47,8 +50,9 @@ MonkeysLegion is a meta-package that bundles the following modular components:
 | `monkeyslegion-mail`       | Email sending capabilities               |
 | `monkeyslegion-cache`      | Cache abstraction layer                  |
 | `monkeyslegion-files`      | File operations and storage              |
+| `monkeyslegion-queue`      | Queue worker and job dispatching         |
 | `monkeyslegion-cli`        | Command-line interface kernel            |
-| `monkeyslegion-telemetry`  | Application metrics and monitoring       |
+| `monkeyslegion-telemetry`  | Application metrics and tracing          |
 | `monkeyslegion-dev-server` | Development server for rapid prototyping |
 
 ## 🔨 Installation
@@ -58,7 +62,7 @@ MonkeysLegion is a meta-package that bundles the following modular components:
 - PHP 8.4 or higher
 - Composer 2.x
 - MySQL/MariaDB (or any PDO-supported database)
-- Redis (optional, for caching and rate limiting)
+- Redis (optional, for caching, queues, and rate limiting)
 
 ### Quick Start
 
@@ -155,24 +159,10 @@ auth {
     refresh_ttl = 604800
 
     rate_limit {
-        driver = "cache"  # Options: "redis", "cache", "memory"
+        driver = "cache"
         max_attempts = 60
         lockout_seconds = 60
     }
-
-    token_storage {
-        driver = "memory"  # Options: "redis", "memory"
-        prefix = "auth:"
-    }
-}
-
-redis {
-    host = "127.0.0.1"
-    port = 6379
-    timeout = 0.0
-    database = 0
-    # password = "your-password"  # Optional
-    # prefix = "myapp:"           # Optional key prefix
 }
 ```
 
@@ -362,8 +352,7 @@ class UserRegistered
 use Psr\EventDispatcher\ListenerProviderInterface;
 
 $provider->addListener(UserRegistered::class, function(UserRegistered $event) {
-    // Send welcome email
-    // Log analytics
+    // Audit Log
 });
 
 // Dispatch
@@ -385,6 +374,102 @@ echo $translator->trans('user.greeting', ['name' => 'John']); // "Hello, John"
 // Change locale
 $translator->setLocale('es');
 echo $translator->trans('welcome.message'); // "Bienvenido a nuestra aplicación"
+```
+
+### Queue System
+
+Handle background tasks efficiently:
+
+```php
+use MonkeysLegion\Queue\Contracts\QueueDispatcherInterface;
+use App\Job\SendEmailJob;
+
+class RegistrationController {
+    public function __construct(private QueueDispatcherInterface $queue) {}
+
+    public function register(Request $request) {
+        // ... create user ...
+
+        // Dispatch job to queue
+        $this->queue->dispatch(new SendEmailJob($user->id));
+
+        return response()->json(['status' => 'queued']);
+    }
+}
+```
+
+**Worker Configuration:**
+
+```mlc
+queue {
+    default = "database"
+    batch_table = "job_batches"
+
+    worker {
+        sleep = 3
+        max_tries = 3
+        timeout = 60
+    }
+}
+```
+
+### File Management
+
+Manage files and images with ease:
+
+```php
+use MonkeysLegion\Files\FilesManager;
+use MonkeysLegion\Files\Image\ImageProcessor;
+
+class FileController {
+    public function __construct(
+        private FilesManager $files,
+        private ImageProcessor $image
+    ) {}
+
+    public function upload(Request $request) {
+        $file = $request->getUploadedFiles()['avatar'];
+
+        // Store file
+        $path = $this->files->store($file, 'avatars');
+
+        // Create thumbnail
+        $this->image->process($path, [
+            'resize' => [150, 150],
+            'format' => 'webp'
+        ]);
+
+        return response()->json(['path' => $path]);
+    }
+}
+```
+
+### OpenAPI / Swagger
+
+MonkeysLegion automatically generates OpenAPI v3 documentation from your routes and attributes.
+
+```php
+use MonkeysLegion\Http\OpenApi\OpenApiMiddleware;
+
+// Add middleware to your pipeline
+$app->add(OpenApiMiddleware::class);
+
+// Access via /api/docs (default path)
+```
+
+### Telemetry
+
+Built-in support for OpenTelemetry-compatible tracing and metrics:
+
+```php
+use MonkeysLegion\Telemetry\Metrics\MetricsInterface;
+use MonkeysLegion\Telemetry\Tracing\TracerInterface;
+
+$metrics->counter('http_requests_total')->inc();
+
+$span = $tracer->startSpan('process_request');
+// ... work ...
+$span->end();
 ```
 
 ### Middleware
@@ -425,31 +510,6 @@ middleware {
 }
 ```
 
-### Dependency Injection
-
-```php
-use MonkeysLegion\DI\ContainerBuilder;
-
-// Define services in config/app.php
-return [
-    MyService::class => fn($c) => new MyService(
-        $c->get(SomeDependency::class)
-    ),
-
-    // Use interfaces
-    MyInterface::class => fn($c) => $c->get(MyImplementation::class),
-];
-
-// Auto-wiring in controllers
-class UserController
-{
-    public function __construct(
-        private MyService $service,
-        private QueryBuilder $qb
-    ) {}
-}
-```
-
 ### CLI Commands
 
 ```bash
@@ -464,29 +524,6 @@ php bin/console cache:clear
 
 # List routes
 php bin/console route:list
-```
-
-Create custom commands:
-
-```php
-use MonkeysLegion\Cli\Command;
-
-class MyCommand extends Command
-{
-    protected string $signature = 'my:command {argument} {--option=}';
-    protected string $description = 'My custom command';
-
-    public function handle(): int
-    {
-        $arg = $this->argument('argument');
-        $opt = $this->option('option');
-
-        $this->info('Processing...');
-        $this->success('Done!');
-
-        return 0;
-    }
-}
 ```
 
 ## 🧪 Testing
@@ -583,15 +620,10 @@ Created and maintained by the MonkeysCloud team.
 
 ## 🗺️ Roadmap
 
-- [ ] GraphQL support
-- [ ] WebSocket server
-- [ ] Queue/Job system
-- [ ] Admin panel generator
-- [ ] Real-time broadcasting
-- [ ] File storage abstraction (S3, local, etc.)
-- [ ] Advanced caching strategies
-- [ ] Full OpenAPI/Swagger integration
-- [ ] Enhanced CLI scaffolding tools
+- [ ] WebSocket Server / Real-time Broadcasting
+- [ ] GraphQL Support
+- [ ] Admin Panel Generator
+- [ ] Advanced CLI Scaffolding
 
 ---
 
