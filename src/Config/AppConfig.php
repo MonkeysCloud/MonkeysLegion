@@ -370,7 +370,7 @@ final class AppConfig
             /* ----------------------------------------------------------------- */
             /* Entity scanner + migration generator                               */
             /* ----------------------------------------------------------------- */
-            EntityScanner::class      => fn() => new EntityScanner(base_path('app/Entity')),
+            EntityScanner::class      => fn() => new EntityScanner(),
             MigrationGenerator::class => fn($c) => new MigrationGenerator(
                 $c->get(ConnectionInterface::class)
             ),
@@ -641,6 +641,7 @@ final class AppConfig
             RbacService::class => fn($c) => new RbacService(
                 $c->get(RoleRegistry::class),
                 $c->get(PermissionChecker::class),
+                $c->get(ConnectionInterface::class)->pdo()
             ),
 
             /* ----------------------------------------------------------------- */
@@ -942,7 +943,7 @@ final class AppConfig
                 $mlc = $c->get(MlcConfig::class);
 
                 return new UploadRateLimiter(
-                    cache: (new CacheManager($mlc->get('cache', [])))->store(),
+                    cache: new CacheManager($mlc->get('cache', [])),
                     maxUploadsPerMinute: (int) $mlc->get('files.rate_limiting.uploads_per_minute', 10),
                     maxBytesPerHour: (int) $mlc->get('files.rate_limiting.bytes_per_hour', 104857600),
                     maxConcurrentUploads: (int) $mlc->get('files.rate_limiting.concurrent_uploads', 3),
