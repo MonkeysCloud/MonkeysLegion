@@ -639,7 +639,8 @@ final class AppConfig
             ),
 
             RbacService::class => fn($c) => new RbacService(
-                $c->get(ConnectionInterface::class)->pdo()
+                $c->get(RoleRegistry::class),
+                $c->get(PermissionChecker::class),
             ),
 
             /* ----------------------------------------------------------------- */
