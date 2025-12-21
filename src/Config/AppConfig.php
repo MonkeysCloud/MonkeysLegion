@@ -942,7 +942,7 @@ final class AppConfig
                 $mlc = $c->get(MlcConfig::class);
 
                 return new UploadRateLimiter(
-                    cache: new CacheManager($mlc->get('cache', [])),
+                    cache: (new CacheManager($mlc->get('cache', [])))->store(),
                     maxUploadsPerMinute: (int) $mlc->get('files.rate_limiting.uploads_per_minute', 10),
                     maxBytesPerHour: (int) $mlc->get('files.rate_limiting.bytes_per_hour', 104857600),
                     maxConcurrentUploads: (int) $mlc->get('files.rate_limiting.concurrent_uploads', 3),
