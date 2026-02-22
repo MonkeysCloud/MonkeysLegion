@@ -27,7 +27,6 @@ use MonkeysLegion\Auth\RateLimit\CacheRateLimiter;
 use MonkeysLegion\Auth\RateLimit\InMemoryRateLimiter;
 
 use MonkeysLegion\Auth\TwoFactor\TotpProvider;
-use MonkeysLegion\Auth\TwoFactor\TwoFactorService as TwoFactorProviderService;
 
 use MonkeysLegion\Auth\RBAC\RoleRegistry;
 use MonkeysLegion\Auth\RBAC\PermissionChecker;
@@ -39,10 +38,7 @@ use MonkeysLegion\Auth\OAuth\OAuthService;
 use MonkeysLegion\Auth\OAuth\GoogleProvider;
 use MonkeysLegion\Auth\OAuth\GitHubProvider;
 
-use MonkeysLegion\Auth\ApiKey\ApiKeyService;
-
 use MonkeysLegion\Auth\Storage\InMemoryTokenStorage;
-use MonkeysLegion\Auth\Storage\InMemoryUserProvider;
 use MonkeysLegion\Framework\Auth\DatabaseUserProvider;
 
 /* -------------------------------------------------------------------------
@@ -135,7 +131,6 @@ use MonkeysLegion\Validation\AttributeValidator;
 use MonkeysLegion\Validation\DtoBinder;
 use MonkeysLegion\Validation\Middleware\ValidationMiddleware;
 
-use MonkeysLegion\Files\FilesServiceProvider;
 use MonkeysLegion\Files\FilesManager;
 use MonkeysLegion\Files\Contracts\StorageInterface;
 use MonkeysLegion\Files\Contracts\ChunkedUploadInterface;
@@ -145,7 +140,6 @@ use MonkeysLegion\Files\Upload\ChunkedUploadManager;
 use MonkeysLegion\Files\Storage\LocalStorage;
 use MonkeysLegion\Files\RateLimit\UploadRateLimiter;
 use MonkeysLegion\Files\Maintenance\GarbageCollector;
-use MonkeysLegion\Mail\Config\RedisConnectionConfig;
 use MonkeysLegion\Queue\Factory\QueueFactory;
 use MonkeysLegion\Queue\Dispatcher\QueueDispatcher;
 use MonkeysLegion\Queue\Contracts\QueueDispatcherInterface;
@@ -154,8 +148,6 @@ use MonkeysLegion\Queue\Batch\BatchRepository;
 use MonkeysLegion\Queue\Events\QueueEventDispatcher;
 use MonkeysLegion\Queue\Worker\Worker;
 use MonkeysLegion\Session\Contracts\SessionDriverInterface;
-use MonkeysLegion\Session\Drivers\DatabaseDriver;
-use MonkeysLegion\Session\Drivers\FileDriver;
 use MonkeysLegion\Session\Factory\DriverFactory;
 use MonkeysLegion\Session\Middleware\SessionMiddleware;
 use MonkeysLegion\Session\Middleware\VerifyCsrfToken;
@@ -367,10 +359,10 @@ final class AppConfig
             /* ----------------------------------------------------------------- */
             /* Session Driver & Manager & Middleware                              */
             /* ----------------------------------------------------------------- */
-            SessionDriverInterface::class => static function ($c) {
+            'session_config' => static function () {
                 $path = base_path('config/session.php');
 
-                $config = file_exists($path)
+                return file_exists($path)
                     ? require $path
                     : [
                         'default' => 'database',
@@ -380,10 +372,16 @@ final class AppConfig
                             ],
                         ],
                     ];
+            },
+            SessionDriverInterface::class => static function ($c) {
+                $config = $c->get('session_config');
 
                 if (
-                    empty($config['default']) ||
-                    empty($config['drivers'][$config['default']])
+                    !isset($config['default']) ||
+                    !is_string($config['default']) ||
+                    $config['default'] === '' ||
+                    !isset($config['drivers'][$config['default']]) ||
+                    !is_array($config['drivers'][$config['default']])
                 ) {
                     throw new \InvalidArgumentException(
                         'Invalid session configuration: default driver not defined or missing driver config'
@@ -408,22 +406,24 @@ final class AppConfig
                     case 'database':
                         /** @var ConnectionInterface $conn */
                         $conn = $c->get(ConnectionInterface::class);
-
                         $driverConfig['connection'] = $conn;
                         break;
-
                     case 'redis':
                         $driverConfig['redis'] = $c->get(\Redis::class);
                         break;
+                    default:
+                        throw new \InvalidArgumentException(
+                            sprintf(
+                                'Unsupported session driver "%s". Supported drivers are: file, database, redis.',
+                                $driverName
+                            )
+                        );
                 }
 
                 return $factory->make($driverName, $driverConfig);
             },
             SessionManager::class => static function ($c) {
-                $path = base_path('config/session.php');
-                $config = file_exists($path)
-                    ? require $path
-                    : [];
+                $config = $c->get('session_config');
 
                 $serializer = new \MonkeysLegion\Session\NativeSerializer();
                 if (isset($config['encrypt'])) {
@@ -440,18 +440,16 @@ final class AppConfig
                 );
             },
             SessionMiddleware::class => static function ($c) {
-                $path = base_path('config/session.php');
+                $config = $c->get('session_config');
 
-                $config = file_exists($path)
-                    ? require $path
-                    : [];
                 return new SessionMiddleware(
                     $c->get(SessionManager::class),
                     $config
                 );
             },
-            VerifyCsrfToken::class => fn($c) => new VerifyCsrfToken($c->get(SessionManager::class)),
-
+            VerifyCsrfToken::class => static function ($c) {
+                return new VerifyCsrfToken($c->get(SessionManager::class));
+            },
 
             /* ----------------------------------------------------------------- */
             /* Query Builder & Repositories                                       */
