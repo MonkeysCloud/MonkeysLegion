@@ -362,7 +362,8 @@ final class AppConfig
             'session_config' => static function () {
                 $path = base_path('config/session.php');
 
-                return file_exists($path)
+                // Determine the configuration array
+                $configArray = file_exists($path)
                     ? require $path
                     : [
                         'default' => 'database',
@@ -372,9 +373,14 @@ final class AppConfig
                             ],
                         ],
                     ];
+
+                // Return as an object with the 'config' property
+                return (object) [
+                    'config' => $configArray
+                ];
             },
             SessionDriverInterface::class => static function ($c) {
-                $config = $c->get('session_config');
+                $config = $c->get('session_config')->config ?? [];
 
                 if (
                     !isset($config['default']) ||
@@ -423,7 +429,7 @@ final class AppConfig
                 return $factory->make($driverName, $driverConfig);
             },
             SessionManager::class => static function ($c) {
-                $config = $c->get('session_config');
+                $config = $c->get('session_config')->config ?? [];
 
                 $serializer = new \MonkeysLegion\Session\NativeSerializer();
                 if (isset($config['encrypt'])) {
@@ -440,7 +446,7 @@ final class AppConfig
                 );
             },
             SessionMiddleware::class => static function ($c) {
-                $config = $c->get('session_config');
+                $config = $c->get('session_config')->config ?? [];
 
                 return new SessionMiddleware(
                     $c->get(SessionManager::class),
