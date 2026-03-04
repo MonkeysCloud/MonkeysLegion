@@ -21,6 +21,7 @@ use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Provider\MailServiceProvider;
 use MonkeysLegion\Mlc\Config as MlcConfig;
 use MonkeysLegion\Router\Router;
+use MonkeysLegion\Framework\Provider\ProviderScanner;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -68,6 +69,9 @@ final class HttpBootstrap
 
         // 6) register the Files provider with the built container
         (new FilesServiceProvider($container))->register();
+
+        // 7) Scan and run attribute-based providers
+        self::runAttributeProviders($container, $root);
 
         return $container;
     }
@@ -237,6 +241,46 @@ final class HttpBootstrap
                     ['exception' => $e]
                 );
                 // don't stop the bootstrap process if a provider fails
+            }
+        }
+    }
+
+    /**
+     * Scan for providers with #[Provider] attribute and run their register() method.
+     */
+    private static function runAttributeProviders(ContainerInterface $c, string $root): void
+    {
+        $scanner = new ProviderScanner();
+        $providers = $scanner->scan($root . '/app/Providers', 'App\\Providers');
+
+        foreach ($providers as $class) {
+            $instance = $c->get($class);
+            if (method_exists($instance, 'register')) {
+                $method = new \ReflectionMethod($instance, 'register');
+                $args = [];
+
+                foreach ($method->getParameters() as $parameter) {
+                    $type = $parameter->getType();
+                    
+                    if ($type instanceof \ReflectionNamedType && !$type->isBuiltin()) {
+                        $args[] = $c->get($type->getName());
+                    } elseif ($parameter->isDefaultValueAvailable()) {
+                        $args[] = $parameter->getDefaultValue();
+                    } else {
+                        // If it's the container itself
+                        if ($type instanceof \ReflectionNamedType && $type->getName() === ContainerInterface::class) {
+                            $args[] = $c;
+                        } else {
+                            throw new \RuntimeException(sprintf(
+                                "Cannot resolve parameter '%s' for %s::register()",
+                                $parameter->getName(),
+                                $class
+                            ));
+                        }
+                    }
+                }
+
+                $method->invokeArgs($instance, $args);
             }
         }
     }

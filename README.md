@@ -553,7 +553,32 @@ class UserServiceTest extends TestCase
 
 ## 🔧 Advanced Usage
 
-### Custom Service Providers
+### Automatic Provider Discovery (Recommended)
+
+MonkeysLegion can automatically discover and register your service contexts using attributes. Simply create a class in `app/Providers/` and tag it with the `#[Provider]` attribute.
+
+```php
+namespace App\Providers;
+
+use MonkeysLegion\Framework\Attributes\Provider;
+use Psr\Log\LoggerInterface;
+
+#[Provider]
+final class MyCoolProvider
+{
+    /**
+     * The framework will automatically call this method and inject any dependencies.
+     */
+    public function register(LoggerInterface $logger): void
+    {
+        $logger->info("MyCoolProvider is registered!");
+    }
+}
+```
+
+The `register()` method supports full dependency injection from the container.
+
+### Manual Service Providers
 
 Extend the framework with custom providers:
 

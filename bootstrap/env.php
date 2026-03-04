@@ -7,7 +7,7 @@ $env = getenv('APP_ENV') ?: 'dev';
 // Candidate roots depending on context
 $roots = [
     dirname(__DIR__, 4),         // original relative guess (vendor usage)
-    __DIR__ . '/../../my-app' // The relative path I use for development will only work in dev mode, when the package is symlinked
+    __DIR__ . '/../../session-app' // The relative path I use for development will only work in dev mode, when the package is symlinked
 ];
 
 // Candidate .env files

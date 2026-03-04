@@ -140,6 +140,7 @@ use MonkeysLegion\Files\Upload\ChunkedUploadManager;
 use MonkeysLegion\Files\Storage\LocalStorage;
 use MonkeysLegion\Files\RateLimit\UploadRateLimiter;
 use MonkeysLegion\Files\Maintenance\GarbageCollector;
+use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Queue\Factory\QueueFactory;
 use MonkeysLegion\Queue\Dispatcher\QueueDispatcher;
 use MonkeysLegion\Queue\Contracts\QueueDispatcherInterface;
@@ -147,11 +148,18 @@ use MonkeysLegion\Queue\Contracts\QueueInterface;
 use MonkeysLegion\Queue\Batch\BatchRepository;
 use MonkeysLegion\Queue\Events\QueueEventDispatcher;
 use MonkeysLegion\Queue\Worker\Worker;
+use Monkeyslegion\Schedule\Contracts\ScheduleDriver;
+use Monkeyslegion\Schedule\Discovery\AttributeScanner;
+use Monkeyslegion\Schedule\Driver\DriverFactory as ScheduleDriverFactory;
+use Monkeyslegion\Schedule\Schedule;
+use Monkeyslegion\Schedule\ScheduleManager;
+use Monkeyslegion\Schedule\Support\CronParser;
 use MonkeysLegion\Session\Contracts\SessionDriverInterface;
 use MonkeysLegion\Session\Factory\DriverFactory;
 use MonkeysLegion\Session\Middleware\SessionMiddleware;
 use MonkeysLegion\Session\Middleware\VerifyCsrfToken;
 use MonkeysLegion\Session\SessionManager;
+use Redis;
 
 /**  Default DI definitions shipped by the framework.  */
 final class AppConfig
@@ -941,10 +949,7 @@ final class AppConfig
             /* Cache                                                             */
             /* ----------------------------------------------------------------- */
             DatabaseCacheInterface::class => function ($c) {
-                /** @var MlcConfig $mlc */
-                $mlc = $c->get(MlcConfig::class);
-                $config = $mlc->get('cache', []);
-
+                $config = require base_path('config/cache.php') ?? [];
                 $manager = new CacheManager($config);
                 return new CacheManagerBridge($manager, $config['prefix'] ?? '');
             },
@@ -982,7 +987,7 @@ final class AppConfig
                 );
 
                 // Set cache if available
-                $cacheConfig = $mlc->get('cache', []);
+                $cacheConfig = require base_path('config/cache.php') ?? [];
                 if (!empty($cacheConfig) && isset($cacheConfig['driver'])) {
                     $cacheManager = new CacheManager($cacheConfig);
                     $manager->setCache($cacheManager->store());
@@ -1120,6 +1125,35 @@ final class AppConfig
                     batchRepository: $c->get(BatchRepository::class)
                 );
             },
+
+            // Schedule 
+            ScheduleDriver::class => static function ($c) {
+                $factory = new ScheduleDriverFactory(
+                    $c->get(\MonkeysLegion\Database\Cache\Contracts\CacheInterface::class),
+                    $c->get(\Redis::class)
+                );
+                $driver = $_ENV['SCHEDULE_DRIVER'] ?? 'cache';
+                return $factory->make($driver);
+            },
+
+            ScheduleManager::class => static function ($c) {
+                $cacheInterface = $c->get(\MonkeysLegion\Database\Cache\Contracts\CacheInterface::class);
+                $scanner = new AttributeScanner();
+                $debug = (bool) $c->get(MlcConfig::class)->get('app.debug', false);
+                return new ScheduleManager(
+                    driver: $c->get(ScheduleDriver::class),
+                    cache: $cacheInterface,
+                    scanner: $scanner,
+                    logger: $c->get(MonkeysLoggerInterface::class),
+                    debugMode: $debug
+                );
+            },
+
+            Schedule::class => fn($c) => new Schedule(
+                manager: $c->get(ScheduleManager::class)
+            ),
+
+            CronParser::class => fn() => new CronParser(),
         ];
     }
 
