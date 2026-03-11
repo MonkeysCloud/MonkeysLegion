@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Framework;
 
+use MonkeysLegion\Cli\Application\MLRunner;
+use MonkeysLegion\Cli\CliKernel;
 use MonkeysLegion\Config\AppConfig;
 use MonkeysLegion\Config\LoggerConfig;
 use MonkeysLegion\Core\Provider\ProviderInterface;
@@ -92,7 +94,11 @@ final class HttpBootstrap
     public static function run(string $root, ?callable $customizer = null): void
     {
         $c = self::buildContainer($root);
+        
         define('ML_CONTAINER', $c);
+
+        // boot any necessary services (e.g. ML Runner for inline tasks)
+        self::boot($c);
 
         // Configure PHP-native error logging based on .mlc settings
         /** @var MlcConfig $mlc */
@@ -114,7 +120,7 @@ final class HttpBootstrap
                 'error_log',
                 base_path(
                     $logging['php_errors']['file']
-                    ?? 'var/log/php-errors.log'
+                        ?? 'var/log/php-errors.log'
                 )
             );
         }
@@ -261,7 +267,7 @@ final class HttpBootstrap
 
                 foreach ($method->getParameters() as $parameter) {
                     $type = $parameter->getType();
-                    
+
                     if ($type instanceof \ReflectionNamedType && !$type->isBuiltin()) {
                         $args[] = $c->get($type->getName());
                     } elseif ($parameter->isDefaultValueAvailable()) {
@@ -293,5 +299,11 @@ final class HttpBootstrap
         if (self::$errorHandler !== null) {
             self::$errorHandler->useLogger($logger);
         }
+    }
+
+    private static function boot(ContainerInterface $c): void
+    {
+        // boot the ml runner if we're in a CLI context - this allows us to run inline tasks with `php ml runner run ...`
+        MLRunner::boot($c->get(CliKernel::class));
     }
 }
