@@ -8,8 +8,9 @@ use MonkeysLegion\Cli\Application\MLRunner;
 use MonkeysLegion\Cli\CliKernel;
 use MonkeysLegion\Config\AppConfig;
 use MonkeysLegion\Config\LoggerConfig;
-use MonkeysLegion\Core\Provider\ProviderInterface;
+
 use MonkeysLegion\Core\Routing\RouteLoader;
+use MonkeysLegion\DI\CompiledContainerCache;
 use MonkeysLegion\DI\Container;
 use MonkeysLegion\DI\ContainerBuilder;
 use MonkeysLegion\Files\FilesServiceProvider;
@@ -57,10 +58,23 @@ final class HttpBootstrap
 
         $b = new ContainerBuilder();
 
-        // 1) framework definitions
-        $b->addDefinitions((new AppConfig())());
+        // 1) Production compiled cache — skip all provider instantiation
+        $cachePath = $root . '/var/cache/container.php';
+        $env = $_ENV['APP_ENV'] ?? 'dev';
+        $cached = null;
 
-        // 2) project overrides
+        if ($env === 'production' && CompiledContainerCache::exists($cachePath)) {
+            $cached = CompiledContainerCache::load($cachePath);
+        }
+
+        if ($cached !== null) {
+            $b->addDefinitions($cached);
+        } else {
+            // 1a) framework definitions via modular providers
+            $b->addDefinitions((new AppConfig())());
+        }
+
+        // 2) project overrides (always applied, even on cached boots)
         if (is_file($root . '/config/app.php')) {
             $b->addDefinitions(require $root . '/config/app.php');
         }
@@ -264,7 +278,7 @@ final class HttpBootstrap
 
         foreach ($composerExtraProviders as $providerClass) {
             if (!class_exists($providerClass)) continue;
-            /** @var ProviderInterface $providerClass */
+            /** @var class-string $providerClass */
 
             try {
                 if (method_exists($providerClass, 'setLogger')) {
