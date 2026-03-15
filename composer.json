@@ -31,7 +31,7 @@
     "monkeyscloud/monkeyslegion-files": "^2.0",
     "monkeyscloud/monkeyslegion-cache": "^1.0",
     "monkeyscloud/monkeyslegion-queue": "^1.0",
-    "monkeyscloud/monkeyslegion-schedule": "dev-main"
+    "monkeyscloud/monkeyslegion-schedule": "^1.0"
   },
   "autoload": {
     "psr-4": {
