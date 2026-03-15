@@ -18,12 +18,16 @@ use MonkeysLegion\Http\RouteRequestHandler;
 use MonkeysLegion\Http\Emitter\SapiEmitter;
 use MonkeysLegion\Http\Message\ServerRequest;
 use MonkeysLegion\Http\Error\ErrorHandler;
-use MonkeysLegion\Http\Error\Renderer\{PlainTextErrorRenderer, JsonErrorRenderer, HtmlErrorRenderer};
+use MonkeysLegion\Http\Error\Renderer\{BasicHtmlErrorRenderer, PlainTextErrorRenderer, JsonErrorRenderer, HtmlErrorRenderer};
 use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Provider\MailServiceProvider;
 use MonkeysLegion\Mlc\Config as MlcConfig;
 use MonkeysLegion\Router\Router;
 use MonkeysLegion\Framework\Provider\ProviderScanner;
+use MonkeysLegion\Http\Factory\HttpFactory;
+use MonkeysLegion\Session\SessionManager;
+use MonkeysLegion\Template\Loader;
+use MonkeysLegion\Template\Renderer;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -36,10 +40,14 @@ final class HttpBootstrap
     /** Build container with framework defaults + project overrides */
     public static function buildContainer(string $root): Container
     {
-        // Register error handler
-        self::registerErrorHandler();
+        // Set the global request instance for HttpFactory so it's available throughout the app (e.g. in error handlers)
+        $req = ServerRequest::fromGlobals();
+        HttpFactory::setGlobalRequest($req);
 
         self::bootstrapEnv($root);
+
+        // Register error handler
+        self::registerErrorHandler();
 
         // Bootstrap logger early so it's available during container build
         $logger = self::getAppLogger();
@@ -69,6 +77,13 @@ final class HttpBootstrap
         // 5) now build the container
         $container = $b->build();
 
+        self::switchToHtmlRendererIfUsed(
+            $container->get(Loader::class),
+            $container->get(Renderer::class),
+            $req,
+            $container->has(SessionManager::class) ? $container->get(SessionManager::class) : null
+        );
+
         // 6) register the Files provider with the built container
         (new FilesServiceProvider($container))->register();
 
@@ -94,7 +109,7 @@ final class HttpBootstrap
     public static function run(string $root, ?callable $customizer = null): void
     {
         $c = self::buildContainer($root);
-        
+
         define('ML_CONTAINER', $c);
 
         // boot any necessary services (e.g. ML Runner for inline tasks)
@@ -145,8 +160,7 @@ final class HttpBootstrap
     /**
      * Register global error handler
      */
-    private static function registerErrorHandler(): void
-    {
+    private static function registerErrorHandler(): void {
         static $registered = false;
         if ($registered) {
             return;
@@ -159,11 +173,29 @@ final class HttpBootstrap
         } elseif (str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json') || str_starts_with($_SERVER['REQUEST_URI'], '/api')) {
             self::$errorHandler->useRenderer(new JsonErrorRenderer());
         } else {
-            self::$errorHandler->useRenderer(new HtmlErrorRenderer());
+            self::$errorHandler->useRenderer(new BasicHtmlErrorRenderer());
         }
 
         self::$errorHandler->register();
         $registered = true;
+    }
+
+    private static function switchToHtmlRendererIfUsed(
+        Loader $loader,
+        Renderer $renderer,
+        ServerRequest $request,
+        ?SessionManager $session = null
+    ) {
+        if (PHP_SAPI === 'cli' || str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json')) {
+            // no switch required
+        } else {
+            self::$errorHandler->useRenderer(new HtmlErrorRenderer(
+                loader: $loader,
+                renderer: $renderer,
+                request: $request,
+                session: $session
+            ));
+        }
     }
 
     /** Default PSR-15 pipeline driven by middleware.global
