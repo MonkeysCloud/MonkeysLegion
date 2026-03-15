@@ -51,7 +51,8 @@ final class FilesProvider extends AbstractServiceProvider
                     logger: $c->get(LoggerInterface::class),
                 );
 
-                $cacheConfig = require base_path('config/cache.php') ?? [];
+                $cachePath = base_path('config/cache.php');
+                $cacheConfig = is_file($cachePath) ? require $cachePath : [];
                 if (!empty($cacheConfig) && isset($cacheConfig['driver'])) {
                     $cacheManager = new CacheManager($cacheConfig);
                     $manager->setCache($cacheManager->store());

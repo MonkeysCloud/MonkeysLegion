@@ -14,12 +14,12 @@ use MonkeysLegion\Queue\Dispatcher\QueueDispatcher;
 use MonkeysLegion\Queue\Events\QueueEventDispatcher;
 use MonkeysLegion\Queue\Factory\QueueFactory;
 use MonkeysLegion\Queue\Worker\Worker;
-use Monkeyslegion\Schedule\Contracts\ScheduleDriver;
-use Monkeyslegion\Schedule\Discovery\AttributeScanner;
-use Monkeyslegion\Schedule\Driver\DriverFactory as ScheduleDriverFactory;
-use Monkeyslegion\Schedule\Schedule;
-use Monkeyslegion\Schedule\ScheduleManager;
-use Monkeyslegion\Schedule\Support\CronParser;
+use MonkeysLegion\Schedule\Contracts\ScheduleDriver;
+use MonkeysLegion\Schedule\Discovery\AttributeScanner;
+use MonkeysLegion\Schedule\Driver\DriverFactory as ScheduleDriverFactory;
+use MonkeysLegion\Schedule\Schedule;
+use MonkeysLegion\Schedule\ScheduleManager;
+use MonkeysLegion\Schedule\Support\CronParser;
 
 final class QueueProvider extends AbstractServiceProvider
 {

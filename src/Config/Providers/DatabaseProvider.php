@@ -56,7 +56,8 @@ final class DatabaseProvider extends AbstractServiceProvider
 
             /* Database Cache */
             DatabaseCacheInterface::class => function ($c) {
-                $config = require base_path('config/cache.php') ?? [];
+                $path = base_path('config/cache.php');
+                $config = is_file($path) ? require $path : [];
                 $manager = new CacheManager($config);
                 return new CacheManagerBridge($manager, $config['prefix'] ?? '');
             },

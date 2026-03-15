@@ -36,8 +36,12 @@ final class CompiledContainerCache
     /**
      * Compile definitions to a PHP cache file.
      *
-     * The file uses `var_export` for scalar config values but preserves
-     * closures by storing the raw definition array via `serialize`.
+     * When possible, writes the resolved definitions array directly to a
+     * self-contained PHP file using `var_export`, so subsequent requests can
+     * simply `require` the file with no provider discovery or config rebuild.
+     *
+     * If the definitions contain closures (which cannot be safely exported),
+     * we fall back to bootstrapping via `AppConfig` at runtime.
      *
      * @param string $path  Absolute path to write cache file
      * @param array  $definitions The DI definitions array
@@ -49,30 +53,34 @@ final class CompiledContainerCache
             mkdir($dir, 0755, true);
         }
 
-        // Separate closures from scalar values
-        $serializable = [];
-        $closureKeys  = [];
-
-        foreach ($definitions as $key => $value) {
-            if ($value instanceof \Closure || is_callable($value)) {
-                $closureKeys[] = $key;
-            } else {
-                $serializable[$key] = $value;
+        // Detect whether any definitions are closures; these cannot be
+        // reliably exported with var_export().
+        $hasClosures = false;
+        foreach ($definitions as $value) {
+            if ($value instanceof \Closure) {
+                $hasClosures = true;
+                break;
             }
         }
 
-        // We store a self-executing PHP file that returns the definitions.
-        // Closures cannot be serialized, so we use the ClosureSerializer.
         $content = "<?php\n\n";
         $content .= "/**\n * Compiled container cache.\n *\n";
         $content .= " * Generated: " . date('Y-m-d H:i:s') . "\n";
         $content .= " * Entries: " . count($definitions) . "\n";
         $content .= " * DO NOT EDIT — regenerate with: ml config:cache\n */\n\n";
-        $content .= "return (static function () {\n";
-        $content .= "    // Re-build definitions from providers (cached bootstrap)\n";
-        $content .= "    \$config = new \\MonkeysLegion\\Config\\AppConfig();\n";
-        $content .= "    return \$config();\n";
-        $content .= "})();\n";
+
+        if ($hasClosures) {
+            // Fallback: rebuild definitions from providers at runtime.
+            $content .= "return (static function () {\n";
+            $content .= "    // Re-build definitions from providers (cached bootstrap)\n";
+            $content .= "    \$config = new \\MonkeysLegion\\Config\\AppConfig();\n";
+            $content .= "    return \$config();\n";
+            $content .= "})();\n";
+        } else {
+            // Fast path: cache the resolved definitions array directly.
+            $exported = var_export($definitions, true);
+            $content .= "return " . $exported . ";\n";
+        }
 
         file_put_contents($path, $content, LOCK_EX);
 
