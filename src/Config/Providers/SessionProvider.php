@@ -27,10 +27,11 @@ final class SessionProvider extends AbstractServiceProvider
                 $configArray = file_exists($path)
                     ? require $path
                     : [
-                        'default' => 'database',
+                        'default' => 'file',
                         'drivers' => [
-                            'database' => [
-                                'memory' => true,
+                            'file' => [
+                                'path' => base_path('var/sessions'),
+                                'lifetime' => 7200,
                             ],
                         ],
                     ];
