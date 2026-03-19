@@ -8,6 +8,8 @@ use MonkeysLegion\Cli\Application\MLRunner;
 use MonkeysLegion\Cli\CliKernel;
 use MonkeysLegion\Config\AppConfig;
 use MonkeysLegion\Config\LoggerConfig;
+use MonkeysLegion\Session\SessionServiceProvider;
+use MonkeysLegion\Template\TemplateServiceProvider;
 
 use MonkeysLegion\Core\Routing\RouteLoader;
 use MonkeysLegion\DI\CompiledContainerCache;
@@ -88,15 +90,22 @@ final class HttpBootstrap
         // 4.1) register any extra providers from composer.json
         self::registerExtras($b, $root, $logger);
 
+        // 4.2) register package service providers (interface → concrete bindings)
+        $b->addProvider(new TemplateServiceProvider());
+        $b->addProvider(new SessionServiceProvider());
+
         // 5) now build the container
         $container = $b->build();
 
-        self::switchToHtmlRendererIfUsed(
-            $container->get(Loader::class),
-            $container->get(Renderer::class),
-            $req,
-            $container->has(SessionManager::class) ? $container->get(SessionManager::class) : null
-        );
+        // Only switch to HTML error renderer for HTTP requests (not CLI)
+        if (PHP_SAPI !== 'cli') {
+            self::switchToHtmlRendererIfUsed(
+                $container->get(Loader::class),
+                $container->get(Renderer::class),
+                $req,
+                $container->has(SessionManager::class) ? $container->get(SessionManager::class) : null
+            );
+        }
 
         // 6) register the Files provider with the built container
         (new FilesServiceProvider($container))->register();
