@@ -28,11 +28,14 @@ final class QueueProvider extends AbstractServiceProvider
         return [
             /* Queue Factory & Driver */
             QueueFactory::class => static function ($c) {
-                /** @var MlcConfig $mlc */
-                $mlc = $c->get(MlcConfig::class);
+                // /** @var MlcConfig $mlc */
+                // $mlc = $c->get(MlcConfig::class);
+
+                $path = base_path('config/queue.php');
+                $config = file_exists($path) ? require $path : [];
 
                 return new QueueFactory(
-                    config: $mlc->get('queue', []),
+                    config: $config,
                     dbConnection: $c->get(ConnectionInterface::class)
                 );
             },
@@ -73,9 +76,7 @@ final class QueueProvider extends AbstractServiceProvider
                     maxTries: (int) ($config['max_tries'] ?? 3),
                     memory: (int) ($config['memory'] ?? 128),
                     timeout: (int) ($config['timeout'] ?? 60),
-                    delayedCheckInterval: (int) ($config['delayed_check_interval'] ?? 30),
-                    eventDispatcher: $c->get(QueueEventDispatcher::class),
-                    batchRepository: $c->get(BatchRepository::class)
+                    delayedCheckInterval: (int) ($config['delayed_check_interval'] ?? 30)
                 );
             },
 

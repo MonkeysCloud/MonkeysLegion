@@ -4,22 +4,25 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Config;
 
-use MonkeysLegion\Config\Providers\AuthProvider;
-use MonkeysLegion\Config\Providers\CacheProvider;
-use MonkeysLegion\Config\Providers\CliProvider;
-use MonkeysLegion\Config\Providers\DatabaseProvider;
-use MonkeysLegion\Config\Providers\EventProvider;
-use MonkeysLegion\Config\Providers\FilesProvider;
-use MonkeysLegion\Config\Providers\HttpFactoryProvider;
-use MonkeysLegion\Config\Providers\MiddlewareProvider;
-use MonkeysLegion\Config\Providers\OpenApiProvider;
-use MonkeysLegion\Config\Providers\QueueProvider;
-use MonkeysLegion\Config\Providers\RoutingProvider;
-use MonkeysLegion\Config\Providers\ServiceProviderInterface;
-use MonkeysLegion\Config\Providers\SessionProvider;
-use MonkeysLegion\Config\Providers\TemplateProvider;
-use MonkeysLegion\Config\Providers\TelemetryProvider;
-use MonkeysLegion\Config\Providers\ValidationProvider;
+use MonkeysLegion\Config\Providers\{
+    AuthProvider,
+    ValidationProvider,
+    CacheProvider,
+    CliProvider,
+    DatabaseProvider,
+    EventProvider,
+    FilesProvider,
+    HttpFactoryProvider,
+    MailProvider,
+    MiddlewareProvider,
+    OpenApiProvider,
+    QueueProvider,
+    RoutingProvider,
+    ServiceProviderInterface,
+    SessionProvider,
+    TelemetryProvider,
+    TemplateProvider,
+};
 use MonkeysLegion\DI\ContainerBuilder;
 
 /**
@@ -51,6 +54,7 @@ final class AppConfig
         FilesProvider::class,
         QueueProvider::class,
         CliProvider::class,
+        MailProvider::class,
     ];
 
     /**
@@ -83,7 +87,7 @@ final class AppConfig
      *
      * Backward-compatible entry point used by HttpBootstrap::buildContainer().
      */
-    public static function register(string $basePath, ContainerBuilder $builder): void
+    public static function register(ContainerBuilder $builder): void
     {
         // Fix for OAuthService expecting legacy JwtService class
         if (!class_exists('MonkeysLegion\Auth\JwtService')) {

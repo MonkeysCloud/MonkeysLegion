@@ -11,6 +11,7 @@ use MonkeysLegion\I18n\Translator;
 use MonkeysLegion\I18n\TranslatorFactory;
 use MonkeysLegion\Mlc\Config as MlcConfig;
 use MonkeysLegion\Template\Compiler as TemplateCompiler;
+use MonkeysLegion\Template\Contracts\ParserInterface;
 use MonkeysLegion\Template\Loader as TemplateLoader;
 use MonkeysLegion\Template\Parser as TemplateParser;
 use MonkeysLegion\Template\Renderer as TemplateRenderer;
@@ -18,16 +19,17 @@ use Psr\SimpleCache\CacheInterface;
 
 final class TemplateProvider extends AbstractServiceProvider
 {
-    public function context(): string
-    {
-        return 'http';
-    }
+    // public function context(): string
+    // {
+    //     return 'http';
+    // }
 
     public function getDefinitions(): array
     {
         return [
             /* Template engine */
             TemplateParser::class   => fn()   => new TemplateParser(),
+            // ParserInterface::class => fn($c) => $c->get(TemplateParser::class),
             TemplateCompiler::class => fn($c) => new TemplateCompiler($c->get(TemplateParser::class)),
             TemplateLoader::class   => fn()   => new TemplateLoader(
                 base_path('resources/views'),

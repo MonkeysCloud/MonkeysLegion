@@ -8,11 +8,17 @@ use MonkeysLegion\Cli\Application\MLRunner;
 use MonkeysLegion\Cli\CliKernel;
 use MonkeysLegion\Config\AppConfig;
 use MonkeysLegion\Config\LoggerConfig;
-
+use MonkeysLegion\Session\SessionServiceProvider;
+use MonkeysLegion\Template\TemplateServiceProvider;
+use MonkeysLegion\Core\Attributes\Provider;
 use MonkeysLegion\Core\Routing\RouteLoader;
 use MonkeysLegion\DI\CompiledContainerCache;
 use MonkeysLegion\DI\Container;
 use MonkeysLegion\DI\ContainerBuilder;
+use MonkeysLegion\Env\Contracts\EnvBootstrapperInterface;
+use MonkeysLegion\Env\EnvManager;
+use MonkeysLegion\Env\Loaders\DotenvLoader;
+use MonkeysLegion\Env\Repositories\NativeEnvRepository;
 use MonkeysLegion\Files\FilesServiceProvider;
 use MonkeysLegion\Http\CoreRequestHandler;
 use MonkeysLegion\Http\RouteRequestHandler;
@@ -21,11 +27,11 @@ use MonkeysLegion\Http\Message\ServerRequest;
 use MonkeysLegion\Http\Error\ErrorHandler;
 use MonkeysLegion\Http\Error\Renderer\{BasicHtmlErrorRenderer, PlainTextErrorRenderer, JsonErrorRenderer, HtmlErrorRenderer};
 use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
-use MonkeysLegion\Mail\Provider\MailServiceProvider;
 use MonkeysLegion\Mlc\Config as MlcConfig;
 use MonkeysLegion\Router\Router;
 use MonkeysLegion\Framework\Provider\ProviderScanner;
 use MonkeysLegion\Http\Factory\HttpFactory;
+use MonkeysLegion\Mlc\Contracts\ParserInterface;
 use MonkeysLegion\Session\SessionManager;
 use MonkeysLegion\Template\Loader;
 use MonkeysLegion\Template\Renderer;
@@ -38,14 +44,20 @@ final class HttpBootstrap
 
     private static ?ErrorHandler $errorHandler = null;
 
-    /** Build container with framework defaults + project overrides */
-    public static function buildContainer(string $root): Container
+    /** 
+     * Build container with framework defaults + project overrides
+     * 
+     * @param string $root project root (usually ML_BASE_PATH)
+     * @param null|EnvBootstrapperInterface $envBootstrapper optional env bootstrapper for custom env loading
+     * @return Container
+     */
+    public static function buildContainer(string $root, ?EnvBootstrapperInterface $envBootstrapper = null): Container
     {
         // Set the global request instance for HttpFactory so it's available throughout the app (e.g. in error handlers)
         $req = ServerRequest::fromGlobals();
         HttpFactory::setGlobalRequest($req);
 
-        self::bootstrapEnv($root);
+        $envBootstrapper = self::bootstrapEnv($root, $envBootstrapper);
 
         // Register error handler
         self::registerErrorHandler();
@@ -78,30 +90,39 @@ final class HttpBootstrap
         if (is_file($root . '/config/app.php')) {
             $b->addDefinitions(require $root . '/config/app.php');
         }
+        // 2.1) add env bootstrapper
+        $b->addDefinitions([
+            EnvBootstrapperInterface::class => fn() => $envBootstrapper,
+        ]);
 
-        // 3) set up mail logger after container is built
-        MailServiceProvider::setLogger($logger);
+        // 2.2) register package service providers (interface → concrete bindings)
+        $b->addProvider(new TemplateServiceProvider());
+        $b->addProvider(new SessionServiceProvider());
 
-        // 4) mail provider also onto builder
-        MailServiceProvider::register($root, $b);
-
-        // 4.1) register any extra providers from composer.json
-        self::registerExtras($b, $root, $logger);
-
-        // 5) now build the container
+        // 3) now build the container
         $container = $b->build();
 
-        self::switchToHtmlRendererIfUsed(
-            $container->get(Loader::class),
-            $container->get(Renderer::class),
-            $req,
-            $container->has(SessionManager::class) ? $container->get(SessionManager::class) : null
-        );
+        // Only switch to HTML error renderer for HTTP requests (not CLI)
+        if (PHP_SAPI !== 'cli') {
+            self::switchToHtmlRendererIfUsed(
+                $container->get(Loader::class),
+                $container->get(Renderer::class),
+                $req,
+                $container->has(SessionManager::class) ? $container->get(SessionManager::class) : null
+            );
+        }
 
-        // 6) register the Files provider with the built container
-        (new FilesServiceProvider($container))->register();
+        // 4) register the Files provider with the built container
+        (new FilesServiceProvider(
+            container: $container,
+            config: null,
+            cacheManager: null,
+            dbConnection: null,
+            logger: null,
+            parser: $container->get(ParserInterface::class),
+        ))->register();
 
-        // 7) Scan and run attribute-based providers
+        // 5) Scan and run attribute-based providers
         self::runAttributeProviders($container, $root);
 
         return $container;
@@ -118,11 +139,12 @@ final class HttpBootstrap
      *                                   Router             $router,
      *                                   ResponseFactoryInterface $rf
      *                                   ): ResponseInterface
+     * @param null|EnvBootstrapperInterface $envBootstrapper optional env bootstrapper for custom env loading
      * @throws \Throwable
      */
-    public static function run(string $root, ?callable $customizer = null): void
+    public static function run(string $root, ?callable $customizer = null, ?EnvBootstrapperInterface $envBootstrapper = null): void
     {
-        $c = self::buildContainer($root);
+        $c = self::buildContainer($root, $envBootstrapper);
 
         define('ML_CONTAINER', $c);
 
@@ -174,7 +196,8 @@ final class HttpBootstrap
     /**
      * Register global error handler
      */
-    private static function registerErrorHandler(): void {
+    private static function registerErrorHandler(): void
+    {
         static $registered = false;
         if ($registered) {
             return;
@@ -236,19 +259,21 @@ final class HttpBootstrap
         return $core->handle($req);
     }
 
-    private static function bootstrapEnv(string $root): void
+    private static function bootstrapEnv(string $root, ?EnvBootstrapperInterface $envBootstrapper = null): EnvBootstrapperInterface
     {
-        static $loaded = false;
-        if ($loaded) {
-            return;
+        if ($envBootstrapper === null) {
+            $envManager = new EnvManager(
+                new DotenvLoader(),
+                new NativeEnvRepository()
+            );
+            if (!$envManager->isBooted()) {
+                $envManager->boot($root);
+            }
+            return $envManager;
+        } else {
+            $envBootstrapper->boot($root);
+            return $envBootstrapper;
         }
-
-        $envBootstrap = $root . '/bootstrap/env.php';
-        if (is_file($envBootstrap)) {
-            require $envBootstrap;
-        }
-
-        $loaded = true;
     }
 
     private static function getAppLogger(): MonkeysLoggerInterface
@@ -267,34 +292,56 @@ final class HttpBootstrap
         return $logger;
     }
 
-    private static function registerExtras(ContainerBuilder $b, $root, MonkeysLoggerInterface $logger): void
+    private static function registerExtras($root, MonkeysLoggerInterface $logger): array
     {
         $composerExtraProviders = [];
         $composerJson = $root . '/composer.json';
-        if (is_file($composerJson)) {
-            $composerData = json_decode(file_get_contents($composerJson), true);
-            $composerExtraProviders = $composerData['extra']['monkeyslegion']['providers'] ?? [];
+        $installedJson = $root . '/vendor/composer/installed.json';
+
+        if (!file_exists($installedJson)) {
+            throw new \RuntimeException("Composer metadata not found. Run 'composer install' first.");
         }
 
-        foreach ($composerExtraProviders as $providerClass) {
-            if (!class_exists($providerClass)) continue;
-            /** @var class-string $providerClass */
+        $data = json_decode(file_get_contents($installedJson), true);
+        $packages = $data['packages'] ?? [];
 
-            try {
-                if (method_exists($providerClass, 'setLogger')) {
-                    $providerClass::setLogger($logger);
+        $composerExtraProviders = [];
+
+        foreach ($packages as $package) {
+            // Check if the package has the "monkeyslegion" extra key
+            if (isset($package['extra']['monkeyslegion']['providers'])) {
+                $providers = $package['extra']['monkeyslegion']['providers'];
+
+                // Merge them into your list
+                foreach ($providers as $provider) {
+                    $composerExtraProviders[] = $provider;
                 }
-                if (method_exists($providerClass, 'register')) {
-                    $providerClass::register(base_path(), $b);
-                }
-            } catch (\Exception $e) {
-                $logger->error(
-                    "Failed to register provider: {$providerClass}",
-                    ['exception' => $e]
-                );
-                // don't stop the bootstrap process if a provider fails
             }
         }
+
+        // filer Providers that don't adapt #[Provider] attribute and Filter duplication
+        $filteredProviders = [];
+        foreach ($composerExtraProviders as $providerClass) {
+            if (class_exists($providerClass)) {
+                $reflectionClass = new \ReflectionClass($providerClass);
+                $attributes = $reflectionClass->getAttributes(Provider::class);
+                if (!empty($attributes)) {
+                    $filteredProviders[] = $providerClass;
+                } else {
+                    $logger->warning(sprintf(
+                        "Provider %s is registered in composer.json but does not have the #[Provider] attribute. Skipping.",
+                        $providerClass
+                    ));
+                }
+            } else {
+                $logger->warning(sprintf(
+                    "Provider class %s defined in composer.json not found. Skipping.",
+                    $providerClass
+                ));
+            }
+        }
+
+        return $filteredProviders;
     }
 
     /**
@@ -304,6 +351,7 @@ final class HttpBootstrap
     {
         $scanner = new ProviderScanner();
         $providers = $scanner->scan($root . '/app/Providers', 'App\\Providers');
+        $providers = [...$providers, ...self::registerExtras($root, $c->get(MonkeysLoggerInterface::class))];
 
         foreach ($providers as $class) {
             $instance = $c->get($class);

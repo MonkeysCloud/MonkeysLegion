@@ -7,7 +7,7 @@
   "prefer-stable": true,
   "require": {
     "monkeyscloud/monkeyslegion-session": "^1.0",
-    "monkeyscloud/monkeyslegion-mlc": "^2.0",
+    "monkeyscloud/monkeyslegion-mlc": "^3.1",
     "monkeyscloud/monkeyslegion-template": "^1.0",
     "monkeyscloud/monkeyslegion-router": "^2.0",
     "monkeyscloud/monkeyslegion-migration": "^1.0",
@@ -24,22 +24,20 @@
     "monkeyscloud/monkeyslegion-query": "^1.0",
     "monkeyscloud/monkeyslegion-i18n": "^2.0",
     "monkeyscloud/monkeyslegion-auth": "^2.0",
-    "monkeyscloud/monkeyslegion-mail": "^1.0",
+    "monkeyscloud/monkeyslegion-mail": "^2.0",
     "monkeyscloud/monkeyslegion-logger": "^1.0",
     "monolog/monolog": "^3.9",
     "vlucas/phpdotenv": "^5.6",
     "monkeyscloud/monkeyslegion-files": "^2.0",
     "monkeyscloud/monkeyslegion-cache": "^1.0",
     "monkeyscloud/monkeyslegion-queue": "^1.0",
-    "monkeyscloud/monkeyslegion-schedule": "^1.0"
+    "monkeyscloud/monkeyslegion-schedule": "^1.0",
+    "monkeyscloud/monkeyslegion-env": "^1.0"
   },
   "autoload": {
     "psr-4": {
       "MonkeysLegion\\": "src/"
-    },
-    "files": [
-      "bootstrap/env.php"
-    ]
+    }
   },
   "extra": {
     "branch-alias": {
@@ -50,5 +48,14 @@
         "MonkeysLegion\\Config\\AppConfig"
       ]
     }
-  }
+  },
+  "repositories": [
+    {
+      "type": "path",
+      "url": "../MonkeysLegion-Files",
+      "options": {
+        "symlink": true
+      }
+    }
+  ]
 }

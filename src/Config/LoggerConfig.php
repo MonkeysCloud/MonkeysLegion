@@ -58,8 +58,6 @@ class LoggerConfig
                 return $logger;
             },
 
-
-
             /**
              * -----------------------------------------------------------------
              * Monkeys Logger (MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface)

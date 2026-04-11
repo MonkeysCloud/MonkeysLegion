@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Framework\Provider;
 
-use MonkeysLegion\Framework\Attributes\Provider;
+use MonkeysLegion\Core\Attributes\Provider;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 use ReflectionClass;
