@@ -29,11 +29,8 @@ final class QueueProvider extends AbstractServiceProvider
             /* Queue Factory & Driver */
             QueueFactory::class => static function ($c) {
                 // /** @var MlcConfig $mlc */
-                // $mlc = $c->get(MlcConfig::class);
-
-                $path = base_path('config/queue.php');
-                $config = file_exists($path) ? require $path : [];
-
+                $mlc = $c->get(MlcConfig::class);
+                $config = $mlc->get('queue', []);
                 return new QueueFactory(
                     config: $config,
                     dbConnection: $c->get(ConnectionInterface::class)
