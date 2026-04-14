@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Config\Providers;
 
-use MonkeysLegion\Core\Routing\RouteLoader;
+use MonkeysLegion\Router\ControllerScanner;
 use MonkeysLegion\Mlc\Config as MlcConfig;
 use MonkeysLegion\Router\RouteCache;
 use MonkeysLegion\Router\RouteCollection;
@@ -37,20 +37,22 @@ final class RoutingProvider extends AbstractServiceProvider
                 /** @var MlcConfig $mlc */
                 $mlc = $c->get(MlcConfig::class);
 
-                $cacheEnabled = (bool) $mlc->get('routing.cache', false);
+                $router = new Router($collection);
+                $router->setContainer($c);
 
+                $cacheEnabled = (bool) $mlc->get('routing.cache', false);
                 if ($cacheEnabled && $cache->has()) {
-                    $cached = $cache->load();
-                    if ($cached !== null) {
-                        $collection->import($cached);
+                    $compiled = $cache->load();
+                    if ($compiled !== null) {
+                        // Router v2 expects compiled routes object, not array import
+                        $router->loadCompiled($compiled);
                     }
                 }
 
-                $router = new Router($collection);
-
-                $baseUrl = $mlc->get('app.url', '');
-                if ($baseUrl) {
-                    $router->getUrlGenerator()->setBaseUrl($baseUrl);
+                $baseUrl = (string) $mlc->get('app.url', '');
+                if ($baseUrl !== '') {
+                    // Router v2 docs: public property baseUrl
+                    $router->getUrlGenerator()->baseUrl = $baseUrl;
                 }
 
                 $globalMiddleware = $mlc->get('routing.global_middleware', []);
@@ -68,11 +70,8 @@ final class RoutingProvider extends AbstractServiceProvider
 
             UrlGenerator::class => fn($c) => $c->get(Router::class)->getUrlGenerator(),
 
-            RouteLoader::class => fn($c) => new RouteLoader(
-                $c->get(Router::class),
-                $c,
-                base_path('app/Controller'),
-                'App\\Controller'
+            ControllerScanner::class => fn($c) => new ControllerScanner(
+                $c->get(Router::class)
             ),
         ];
     }

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Config\Providers;
 
-use MonkeysLegion\Http\SimpleFileCache;
+use MonkeysLegion\Mlc\Cache\CompiledPhpCache;
 use MonkeysLegion\Mlc\Config as MlcConfig;
 use Psr\SimpleCache\CacheInterface;
 
@@ -14,7 +14,7 @@ final class CacheProvider extends AbstractServiceProvider
     {
         return [
             /* PSR-16 Cache (file-based fallback for rate-limiting) */
-            CacheInterface::class => fn() => new SimpleFileCache(
+            CacheInterface::class => fn() => new CompiledPhpCache(
                 base_path('var/cache/rate_limit')
             ),
 

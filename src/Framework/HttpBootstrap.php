@@ -8,10 +8,10 @@ use MonkeysLegion\Cli\Application\MLRunner;
 use MonkeysLegion\Cli\CliKernel;
 use MonkeysLegion\Config\AppConfig;
 use MonkeysLegion\Config\LoggerConfig;
+use MonkeysLegion\Core\Attribute\Provider;
+use MonkeysLegion\Core\Error\Renderer\PlainTextErrorRenderer;
 use MonkeysLegion\Session\SessionServiceProvider;
-use MonkeysLegion\Template\TemplateServiceProvider;
-use MonkeysLegion\Core\Attributes\Provider;
-use MonkeysLegion\Core\Routing\RouteLoader;
+use MonkeysLegion\Router\ControllerScanner;
 use MonkeysLegion\DI\CompiledContainerCache;
 use MonkeysLegion\DI\Container;
 use MonkeysLegion\DI\ContainerBuilder;
@@ -21,23 +21,25 @@ use MonkeysLegion\Env\Loaders\DotenvLoader;
 use MonkeysLegion\Env\Repositories\NativeEnvRepository;
 use MonkeysLegion\Files\FilesServiceProvider;
 use MonkeysLegion\Http\CoreRequestHandler;
-use MonkeysLegion\Http\RouteRequestHandler;
 use MonkeysLegion\Http\Emitter\SapiEmitter;
 use MonkeysLegion\Http\Message\ServerRequest;
-use MonkeysLegion\Http\Error\ErrorHandler;
-use MonkeysLegion\Http\Error\Renderer\{BasicHtmlErrorRenderer, PlainTextErrorRenderer, JsonErrorRenderer, HtmlErrorRenderer};
 use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mlc\Config as MlcConfig;
 use MonkeysLegion\Router\Router;
 use MonkeysLegion\Framework\Provider\ProviderScanner;
-use MonkeysLegion\Http\Factory\HttpFactory;
+use MonkeysLegion\Http\Error\ErrorHandler;
+use MonkeysLegion\Http\Error\Renderer\BasicHtmlErrorRenderer;
+use MonkeysLegion\Http\Error\Renderer\HtmlErrorRenderer;
+use MonkeysLegion\Http\Error\Renderer\JsonErrorRenderer;
 use MonkeysLegion\Mlc\Contracts\ParserInterface;
 use MonkeysLegion\Session\SessionManager;
 use MonkeysLegion\Template\Loader;
 use MonkeysLegion\Template\Renderer;
+
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 
 final class HttpBootstrap
 {
@@ -55,7 +57,6 @@ final class HttpBootstrap
     {
         // Set the global request instance for HttpFactory so it's available throughout the app (e.g. in error handlers)
         $req = ServerRequest::fromGlobals();
-        HttpFactory::setGlobalRequest($req);
 
         $envBootstrapper = self::bootstrapEnv($root, $envBootstrapper);
 
@@ -96,21 +97,19 @@ final class HttpBootstrap
         ]);
 
         // 2.2) register package service providers (interface → concrete bindings)
-        $b->addProvider(new TemplateServiceProvider());
+        // $b->addProvider(new TemplateServiceProvider());
         $b->addProvider(new SessionServiceProvider());
 
         // 3) now build the container
         $container = $b->build();
 
         // Only switch to HTML error renderer for HTTP requests (not CLI)
-        if (PHP_SAPI !== 'cli') {
-            self::switchToHtmlRendererIfUsed(
-                $container->get(Loader::class),
-                $container->get(Renderer::class),
-                $req,
-                $container->has(SessionManager::class) ? $container->get(SessionManager::class) : null
-            );
-        }
+        self::switchToHtmlRendererIfUsed(
+            $container->get(Loader::class),
+            $container->get(Renderer::class),
+            $req,
+            $container->has(SessionManager::class) ? $container->get(SessionManager::class) : null
+        );
 
         // 4) register the Files provider with the built container
         (new FilesServiceProvider(
@@ -119,11 +118,34 @@ final class HttpBootstrap
             cacheManager: null,
             dbConnection: null,
             logger: null,
-            parser: $container->get(ParserInterface::class),
+            parser: $container->get(ParserInterface::class) ?? null,
         ))->register();
 
         // 5) Scan and run attribute-based providers
         self::runAttributeProviders($container, $root);
+
+        // 6) Configure PHP-native error logging based on .mlc settings
+        /** @var MlcConfig $mlc */
+        $mlc     = $container->get(MlcConfig::class);
+        $debug = $mlc->get('app.debug', []);
+        $logging = $mlc->get('logging', []);
+
+        if ($debug && isset($logging['php_errors']) && $logging['php_errors']['enabled'] ?? false) {
+            // show all errors
+            error_reporting(E_ALL);
+            ini_set(
+                'display_errors',
+                $logging['php_errors']['display'] ?? 'stderr'
+            );
+            ini_set('log_errors', '1');
+            ini_set(
+                'error_log',
+                base_path(
+                    $logging['php_errors']['file']
+                        ?? 'var/log/php-errors.log'
+                )
+            );
+        }
 
         return $container;
     }
@@ -151,33 +173,11 @@ final class HttpBootstrap
         // boot any necessary services (e.g. ML Runner for inline tasks)
         self::boot($c);
 
-        // Configure PHP-native error logging based on .mlc settings
-        /** @var MlcConfig $mlc */
-        $mlc     = $c->get(MlcConfig::class);
-        $logging = $mlc->get('logging', []);
-
-        // Enable/Disable debug mode in error handler by looking at debug/logging
-        self::$errorHandler->setDebug(self::$errorHandler !== null && !empty($logging['enabled']) && ($logging['stdout']['level'] ?? '') === 'debug');
-
-        if (! empty($logging['php_errors']['enabled'])) {
-            // show all errors
-            error_reporting(E_ALL);
-            ini_set(
-                'display_errors',
-                $logging['php_errors']['display'] ?? 'stderr'
-            );
-            ini_set('log_errors', '1');
-            ini_set(
-                'error_log',
-                base_path(
-                    $logging['php_errors']['file']
-                        ?? 'var/log/php-errors.log'
-                )
-            );
-        }
-
-        // auto-discover controllers
-        $c->get(RouteLoader::class)->loadControllers();
+        // auto-discover controllers (new router scanner)
+        $c->get(ControllerScanner::class)->scan(
+            $root . '/app/Controller',
+            'App\\Controller'
+        );
 
         // build request & grab router / factory
         $req  = ServerRequest::fromGlobals();
@@ -187,7 +187,7 @@ final class HttpBootstrap
         // delegate to app-supplied closure or use default pipeline
         $res = $customizer
             ? $customizer($c, $req, $rt, $rf)
-            : self::defaultPipeline($c, $req, $rf);
+            : self::defaultPipeline($c, $req);
 
         // emit
         $c->get(SapiEmitter::class)->emit($res);
@@ -240,13 +240,9 @@ final class HttpBootstrap
      */
     private static function defaultPipeline(
         ContainerInterface        $c,
-        ServerRequest             $req,
-        ResponseFactoryInterface  $rf
+        ServerRequest             $req
     ): ResponseInterface {
-        $core = new CoreRequestHandler(
-            $c->get(RouteRequestHandler::class),
-            $rf
-        );
+        $core = new CoreRequestHandler($c->get(RequestHandlerInterface::class));
         /** @var MlcConfig $mlc */
         $mlc = $c->get(MlcConfig::class);
 
@@ -295,7 +291,6 @@ final class HttpBootstrap
     private static function registerExtras($root, MonkeysLoggerInterface $logger): array
     {
         $composerExtraProviders = [];
-        $composerJson = $root . '/composer.json';
         $installedJson = $root . '/vendor/composer/installed.json';
 
         if (!file_exists($installedJson)) {
@@ -318,7 +313,6 @@ final class HttpBootstrap
                 }
             }
         }
-
         // filer Providers that don't adapt #[Provider] attribute and Filter duplication
         $filteredProviders = [];
         foreach ($composerExtraProviders as $providerClass) {

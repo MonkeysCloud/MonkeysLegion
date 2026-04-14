@@ -10,7 +10,6 @@ use MonkeysLegion\Mlc\{
     Config as MlcConfig,
     Loader as MlcLoader
 };
-use MonkeysLegion\Http\SimpleFileCache;
 use MonkeysLegion\Mlc\Contracts\LoaderInterface;
 use MonkeysLegion\Mlc\Contracts\ParserInterface;
 use MonkeysLegion\Mlc\Parsers\CompositeParser;
@@ -55,10 +54,7 @@ class ConfigLoader
             MlcLoader::class                => function (Container $c) {
                 $env = env('APP_ENV', 'dev');
                 $cacheDir = base_path('var/cache/mlc');
-                $cache = match ($env) {
-                    'production', 'prod', 'staging', 'stage' => new CompiledPhpCache($cacheDir),
-                    default => new SimpleFileCache($cacheDir),
-                };
+                $cache = new CompiledPhpCache($cacheDir);
                 /** @var EnvRepositoryInterface|null $env */
                 $env = $c->has(EnvRepositoryInterface::class) ? $c->get(EnvRepositoryInterface::class) : null;
 

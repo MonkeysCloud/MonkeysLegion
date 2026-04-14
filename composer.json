@@ -9,14 +9,14 @@
     "monkeyscloud/monkeyslegion-session": "^1.0",
     "monkeyscloud/monkeyslegion-mlc": "^3.1",
     "monkeyscloud/monkeyslegion-template": "^1.0",
-    "monkeyscloud/monkeyslegion-router": "^2.0",
+    "monkeyscloud/monkeyslegion-router": "^2.1",
     "monkeyscloud/monkeyslegion-migration": "^1.0",
-    "monkeyscloud/monkeyslegion-http": "^1.0",
+    "monkeyscloud/monkeyslegion-http": "^2.1",
     "monkeyscloud/monkeyslegion-entity": "^1.0",
     "monkeyscloud/monkeyslegion-di": "^1.0",
     "monkeyscloud/monkeyslegion-dev-server": "^1.0",
     "monkeyscloud/monkeyslegion-database": "^1.0",
-    "monkeyscloud/monkeyslegion-core": "^1.0",
+    "monkeyscloud/monkeyslegion-core": "^1.1",
     "monkeyscloud/monkeyslegion-cli": "^1.0",
     "monkeyscloud/monkeyslegion-telemetry": "^2.0",
     "monkeyscloud/monkeyslegion-events": "^1.0",
@@ -30,9 +30,10 @@
     "vlucas/phpdotenv": "^5.6",
     "monkeyscloud/monkeyslegion-files": "^2.0",
     "monkeyscloud/monkeyslegion-cache": "^1.0",
-    "monkeyscloud/monkeyslegion-queue": "^1.0",
+    "monkeyscloud/monkeyslegion-queue": "dev-main as 1.1.0",
     "monkeyscloud/monkeyslegion-schedule": "^1.0",
-    "monkeyscloud/monkeyslegion-env": "^1.0"
+    "monkeyscloud/monkeyslegion-env": "^1.0",
+    "monkeyscloud/monkeyslegion-openapi": "^1.0"
   },
   "autoload": {
     "psr-4": {
@@ -53,6 +54,27 @@
     {
       "type": "path",
       "url": "../MonkeysLegion-Files",
+      "options": {
+        "symlink": true
+      }
+    },
+    {
+      "type": "path",
+      "url": "../MonkeysLegion-Queue",
+      "options": {
+        "symlink": true
+      }
+    },
+    {
+      "type": "path",
+      "url": "../MonkeysLegion-Template",
+      "options": {
+        "symlink": true
+      }
+    },
+    {
+      "type": "path",
+      "url": "../MonkeysLegion-Cli",
       "options": {
         "symlink": true
       }
