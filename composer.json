@@ -17,7 +17,7 @@
     "monkeyscloud/monkeyslegion-dev-server": "^1.0",
     "monkeyscloud/monkeyslegion-database": "^1.0",
     "monkeyscloud/monkeyslegion-core": "^1.1",
-    "monkeyscloud/monkeyslegion-cli": "^1.0",
+    "monkeyscloud/monkeyslegion-cli": "2.x-dev as 1.0.0",
     "monkeyscloud/monkeyslegion-telemetry": "^2.0",
     "monkeyscloud/monkeyslegion-events": "^1.0",
     "monkeyscloud/monkeyslegion-validation": "^1.0",
@@ -61,13 +61,6 @@
     {
       "type": "path",
       "url": "../MonkeysLegion-Queue",
-      "options": {
-        "symlink": true
-      }
-    },
-    {
-      "type": "path",
-      "url": "../MonkeysLegion-Template",
       "options": {
         "symlink": true
       }

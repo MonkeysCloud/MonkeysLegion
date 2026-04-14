@@ -35,7 +35,7 @@ use MonkeysLegion\Mlc\Contracts\ParserInterface;
 use MonkeysLegion\Session\SessionManager;
 use MonkeysLegion\Template\Loader;
 use MonkeysLegion\Template\Renderer;
-
+use MonkeysLegion\Template\TemplateServiceProvider;
 use Psr\Container\ContainerInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Http\Message\ResponseInterface;
@@ -97,7 +97,7 @@ final class HttpBootstrap
         ]);
 
         // 2.2) register package service providers (interface → concrete bindings)
-        // $b->addProvider(new TemplateServiceProvider());
+        $b->addProvider(new TemplateServiceProvider());
         $b->addProvider(new SessionServiceProvider());
 
         // 3) now build the container
