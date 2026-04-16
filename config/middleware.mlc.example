@@ -1,16 +1,31 @@
-# MonkeysLegion Middleware Configuration
-# Copy to middleware.mlc and adjust values
+# MonkeysLegion v2 — Middleware Pipeline Configuration
+# Order matters: middleware is executed top-to-bottom on request, bottom-to-top on response.
+# All middleware classes below come from the framework packages.
 
-# Global middleware stack (executed in order for every request)
-middleware.global = [
-    "MonkeysLegion\\Core\\Middleware\\CorsMiddleware",
-    "MonkeysLegion\\Http\\Middleware\\ErrorHandlerMiddleware",
-    "MonkeysLegion\\Http\\Middleware\\LoggingMiddleware"
-]
+middleware {
+    global = [
+        "MonkeysLegion\\Http\\Middleware\\RequestIdMiddleware",
+        "MonkeysLegion\\Http\\Middleware\\SecurityHeadersMiddleware",
+        "MonkeysLegion\\Framework\\Middleware\\MaintenanceModeMiddleware",
+        "MonkeysLegion\\Http\\Middleware\\ErrorHandlerMiddleware",
+        "MonkeysLegion\\Http\\Middleware\\LoggingMiddleware",
+        "MonkeysLegion\\Http\\Middleware\\CorsMiddleware",
+        "MonkeysLegion\\Http\\Middleware\\RateLimitMiddleware",
+        "MonkeysLegion\\Session\\Middleware\\SessionMiddleware",
+        "MonkeysLegion\\Session\\Middleware\\VerifyCsrfToken",
+        "MonkeysLegion\\Auth\\Middleware\\AuthenticationMiddleware",
+        "MonkeysLegion\\Telemetry\\Middleware\\RequestMetricsMiddleware",
+    ]
+}
 
-# Uncomment additional middleware as needed:
-# "MonkeysLegion\\Validation\\Middleware\\ValidationMiddleware"
-# "MonkeysLegion\\Http\\Middleware\\RateLimitMiddleware"
-# "MonkeysLegion\\Auth\\Middleware\\AuthenticationMiddleware"
-# "MonkeysLegion\\Auth\\Middleware\\AuthorizationMiddleware"
-# "MonkeysLegion\\I18n\\Middleware\\LocaleMiddleware"
+# Rate limiting
+rate_limit {
+    max_requests   = 5000
+    window_seconds = 60
+}
+
+# Maintenance mode bypass
+maintenance {
+    allowed_ips = []
+    secret      = env("MAINTENANCE_SECRET", "")
+}

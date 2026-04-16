@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Config;
 
+use MonkeysLegion\Config\Providers\ApexProvider;
 use MonkeysLegion\Config\Providers\AuthProvider;
 use MonkeysLegion\Config\Providers\CacheProvider;
 use MonkeysLegion\Config\Providers\CliProvider;
@@ -11,97 +12,95 @@ use MonkeysLegion\Config\Providers\DatabaseProvider;
 use MonkeysLegion\Config\Providers\EventProvider;
 use MonkeysLegion\Config\Providers\FilesProvider;
 use MonkeysLegion\Config\Providers\HttpFactoryProvider;
+use MonkeysLegion\Config\Providers\I18nProvider;
+use MonkeysLegion\Config\Providers\LoggerProvider;
 use MonkeysLegion\Config\Providers\MiddlewareProvider;
 use MonkeysLegion\Config\Providers\OpenApiProvider;
 use MonkeysLegion\Config\Providers\QueueProvider;
 use MonkeysLegion\Config\Providers\RoutingProvider;
+use MonkeysLegion\Config\Providers\ScheduleProvider;
 use MonkeysLegion\Config\Providers\ServiceProviderInterface;
 use MonkeysLegion\Config\Providers\SessionProvider;
-use MonkeysLegion\Config\Providers\TemplateProvider;
 use MonkeysLegion\Config\Providers\TelemetryProvider;
+use MonkeysLegion\Config\Providers\TemplateProvider;
 use MonkeysLegion\Config\Providers\ValidationProvider;
-use MonkeysLegion\DI\ContainerBuilder;
 
 /**
- * Modular DI definitions shipped by the framework.
+ * Central aggregator of all framework service providers.
  *
- * Loads domain-specific ServiceProviders based on the current execution
- * context (HTTP vs CLI) for minimal overhead per request.
+ * Invoked by Application::boot() to collect DI definitions.
+ * Each provider is context-filtered (http / cli / all).
+ *
+ * @see \MonkeysLegion\Framework\Application
  */
 final class AppConfig
 {
     /**
-     * Deterministic list of providers loaded in dependency order.
+     * Provider registry in boot order.
      *
-     * @var class-string<ServiceProviderInterface>[]
+     * @var array<class-string<ServiceProviderInterface>>
      */
-    private static array $providers = [
-        HttpFactoryProvider::class,
-        CacheProvider::class,
-        TelemetryProvider::class,
+    private const array PROVIDERS = [
+        // ─── Core (always loaded) ───────────────────────────────────
+        LoggerProvider::class,
         EventProvider::class,
+        CacheProvider::class,
         DatabaseProvider::class,
-        SessionProvider::class,
-        RoutingProvider::class,
-        MiddlewareProvider::class,
-        AuthProvider::class,
-        TemplateProvider::class,
         ValidationProvider::class,
-        OpenApiProvider::class,
-        FilesProvider::class,
+        I18nProvider::class,
         QueueProvider::class,
+        FilesProvider::class,
+        TelemetryProvider::class,
+        ApexProvider::class,
+
+        // ─── HTTP-only ──────────────────────────────────────────────
+        HttpFactoryProvider::class,
+        RoutingProvider::class,
+        SessionProvider::class,
+        AuthProvider::class,
+        MiddlewareProvider::class,
+        TemplateProvider::class,
+        OpenApiProvider::class,
+
+        // ─── CLI-only ───────────────────────────────────────────────
         CliProvider::class,
+        ScheduleProvider::class,
     ];
 
     /**
-     * Build all DI definitions for the current context.
+     * Aggregate DI definitions from all providers matching the given context.
      *
+     * @param string $context 'http', 'cli', or 'all'
      * @return array<string, callable|object>
      */
-    public function __invoke(): array
+    public function __invoke(string $context = 'http'): array
     {
-        $context = PHP_SAPI === 'cli' ? 'cli' : 'http';
+        $definitions = [];
 
-        // Logger always loads first (it has its own sub-provider chain)
-        $definitions = (new LoggerConfig())();
-
-        foreach (self::$providers as $class) {
+        foreach (self::PROVIDERS as $providerClass) {
             /** @var ServiceProviderInterface $provider */
-            $provider = new $class();
+            $provider = new $providerClass();
 
             $providerContext = $provider->context();
-            if ($providerContext === 'all' || $providerContext === $context) {
-                $definitions = array_merge($definitions, $provider->getDefinitions());
+
+            // Skip if context doesn't match
+            if ($providerContext !== 'all' && $providerContext !== $context) {
+                continue;
             }
+
+            $definitions = array_merge($definitions, $provider->getDefinitions());
         }
 
         return $definitions;
     }
 
     /**
-     * Called by your bootstrap to add framework defaults.
+     * Get all registered provider class names.
      *
-     * Backward-compatible entry point used by HttpBootstrap::buildContainer().
-     */
-    public static function register(string $basePath, ContainerBuilder $builder): void
-    {
-        // Fix for OAuthService expecting legacy JwtService class
-        if (!class_exists('MonkeysLegion\Auth\JwtService')) {
-            class_alias(\MonkeysLegion\Auth\Service\JwtService::class, 'MonkeysLegion\Auth\JwtService');
-        }
-
-        $builder->addDefinitions((new self())());
-    }
-
-    /**
-     * Get the list of registered provider class names.
-     *
-     * Useful for tooling, cache compilation, and debugging.
-     *
-     * @return class-string<ServiceProviderInterface>[]
+     * @return array<class-string<ServiceProviderInterface>>
      */
     public static function getProviders(): array
     {
-        return self::$providers;
+        return self::PROVIDERS;
     }
 }

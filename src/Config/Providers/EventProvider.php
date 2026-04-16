@@ -8,15 +8,23 @@ use MonkeysLegion\Events\EventDispatcher;
 use MonkeysLegion\Events\ListenerProvider;
 use Psr\EventDispatcher\EventDispatcherInterface;
 
+/**
+ * PSR-14 event dispatcher and listener provider.
+ *
+ * Uses the Events package's EventDispatcher with ListenerProvider.
+ */
 final class EventProvider extends AbstractServiceProvider
 {
     public function getDefinitions(): array
     {
         return [
-            ListenerProvider::class         => fn() => new ListenerProvider(),
-            EventDispatcherInterface::class => fn($c) => new EventDispatcher(
-                $c->get(ListenerProvider::class)
+            ListenerProvider::class => fn(): ListenerProvider => new ListenerProvider(),
+
+            EventDispatcher::class => fn($c): EventDispatcher => new EventDispatcher(
+                provider: $c->get(ListenerProvider::class),
             ),
+
+            EventDispatcherInterface::class => fn($c): EventDispatcher => $c->get(EventDispatcher::class),
         ];
     }
 }

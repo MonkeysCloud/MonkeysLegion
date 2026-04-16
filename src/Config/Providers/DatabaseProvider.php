@@ -4,63 +4,74 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Config\Providers;
 
-use MonkeysLegion\Database\Cache\CacheManagerBridge;
-use MonkeysLegion\Database\Cache\Contracts\CacheInterface as DatabaseCacheInterface;
+use MonkeysLegion\Database\Connection\ConnectionManager;
 use MonkeysLegion\Database\Contracts\ConnectionInterface;
-use MonkeysLegion\Database\Factory\ConnectionFactory;
-use MonkeysLegion\Database\MySQL\Connection;
-use MonkeysLegion\Cache\CacheManager;
+use MonkeysLegion\Database\Contracts\ConnectionManagerInterface;
 use MonkeysLegion\Entity\Scanner\EntityScanner;
 use MonkeysLegion\Migration\MigrationGenerator;
-use MonkeysLegion\Query\QueryBuilder;
-use MonkeysLegion\Repository\RepositoryFactory;
+use MonkeysLegion\Mlc\Config as MlcConfig;
+use MonkeysLegion\Query\Query\QueryBuilder;
 
+/**
+ * Database connection manager, query builder, entity scanner, and migration.
+ *
+ * Uses ConnectionManager::fromArray() which handles DatabaseConfig/DsnConfig construction.
+ */
 final class DatabaseProvider extends AbstractServiceProvider
 {
     public function getDefinitions(): array
     {
         return [
-            /* Database Connection */
-            ConnectionInterface::class => function () {
-                $path = base_path('config/database.php');
-                if (file_exists($path)) {
-                    $config = require $path;
-                } else {
-                    $config = [
-                        'default' => 'sqlite',
-                        'connections' => [
-                            'sqlite' => [
-                                'driver' => 'sqlite',
-                                'database' => ':memory:',
-                            ],
-                        ],
+            /* Connection Manager */
+            ConnectionManagerInterface::class => static function ($c): ConnectionManagerInterface {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                $connections = $mlc->getArray('database.connections', []) ?? [];
+
+                if ($connections === []) {
+                    // Fallback to legacy config
+                    $legacyPath = base_path('config/database.php');
+
+                    if (is_file($legacyPath)) {
+                        $legacyConfig = require $legacyPath;
+                        $connections = $legacyConfig['connections'] ?? [];
+                    }
+                }
+
+                if ($connections === []) {
+                    // Build from env vars
+                    $driver = $_ENV['DB_CONNECTION'] ?? 'mysql';
+
+                    $connections[$driver] = [
+                        'driver'   => $driver,
+                        'host'     => $_ENV['DB_HOST'] ?? '127.0.0.1',
+                        'port'     => (int) ($_ENV['DB_PORT'] ?? 3306),
+                        'database' => $_ENV['DB_DATABASE'] ?? '',
+                        'username' => $_ENV['DB_USERNAME'] ?? 'root',
+                        'password' => $_ENV['DB_PASSWORD'] ?? '',
+                        'charset'  => 'utf8mb4',
                     ];
                 }
-                return ConnectionFactory::create($config);
+
+                return ConnectionManager::fromArray($connections);
             },
 
-            Connection::class => fn($c) => $c->get(ConnectionInterface::class),
+            ConnectionInterface::class => fn($c): ConnectionInterface
+                => $c->get(ConnectionManagerInterface::class)->connection(),
 
-            /* Query Builder & Repositories */
-            QueryBuilder::class => fn($c) => new QueryBuilder($c->get(ConnectionInterface::class)),
-
-            RepositoryFactory::class => fn($c) => new RepositoryFactory(
-                $c->get(QueryBuilder::class)
+            /* Query Builder — uses ConnectionManagerInterface, not ConnectionInterface */
+            QueryBuilder::class => fn($c): QueryBuilder => new QueryBuilder(
+                manager: $c->get(ConnectionManagerInterface::class),
             ),
 
-            /* Entity scanner + migration generator */
-            EntityScanner::class      => fn() => new EntityScanner(),
-            MigrationGenerator::class => fn($c) => new MigrationGenerator(
-                $c->get(ConnectionInterface::class)
-            ),
+            /* Entity Scanner */
+            EntityScanner::class => fn(): EntityScanner => new EntityScanner(),
 
-            /* Database Cache */
-            DatabaseCacheInterface::class => function ($c) {
-                $path = base_path('config/cache.php');
-                $config = is_file($path) ? require $path : [];
-                $manager = new CacheManager($config);
-                return new CacheManagerBridge($manager, $config['prefix'] ?? '');
-            },
+            /* Migration Generator */
+            MigrationGenerator::class => fn($c): MigrationGenerator => new MigrationGenerator(
+                $c->get(ConnectionInterface::class),
+            ),
         ];
     }
 }

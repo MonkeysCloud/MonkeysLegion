@@ -5,8 +5,14 @@ declare(strict_types=1);
 namespace MonkeysLegion\Config\Providers;
 
 use MonkeysLegion\Cli\CliKernel;
-use MonkeysLegion\Cli\Support\CommandFinder;
+use MonkeysLegion\Mlc\Config as MlcConfig;
+use Psr\Container\ContainerInterface;
 
+/**
+ * CLI kernel and command registration provider.
+ *
+ * CLI-only context. Uses CliKernel which auto-discovers vendor + app commands.
+ */
 final class CliProvider extends AbstractServiceProvider
 {
     public function context(): string
@@ -17,9 +23,8 @@ final class CliProvider extends AbstractServiceProvider
     public function getDefinitions(): array
     {
         return [
-            CliKernel::class => fn($c) => new CliKernel(
-                $c,
-                CommandFinder::all()
+            CliKernel::class => fn($c): CliKernel => new CliKernel(
+                container: $c,
             ),
         ];
     }

@@ -4,13 +4,20 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Config\Providers;
 
-use MonkeysLegion\Database\Contracts\ConnectionInterface;
+use MonkeysLegion\Database\Contracts\ConnectionManagerInterface;
+use MonkeysLegion\Mlc\Config as MlcConfig;
 use MonkeysLegion\Session\Contracts\SessionDriverInterface;
 use MonkeysLegion\Session\Factory\DriverFactory;
 use MonkeysLegion\Session\Middleware\SessionMiddleware;
 use MonkeysLegion\Session\Middleware\VerifyCsrfToken;
+use MonkeysLegion\Session\NativeSerializer;
 use MonkeysLegion\Session\SessionManager;
 
+/**
+ * Session driver, manager, middleware, and CSRF provider.
+ *
+ * HTTP-only. Uses DriverFactory::make() with correct config signatures.
+ */
 final class SessionProvider extends AbstractServiceProvider
 {
     public function context(): string
@@ -21,99 +28,70 @@ final class SessionProvider extends AbstractServiceProvider
     public function getDefinitions(): array
     {
         return [
-            'session_config' => static function () {
-                $path = base_path('config/session.php');
+            SessionDriverInterface::class => static function ($c): SessionDriverInterface {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
 
-                $configArray = file_exists($path)
-                    ? require $path
-                    : [
-                        'default' => 'file',
-                        'drivers' => [
-                            'file' => [
-                                'path' => base_path('var/sessions'),
-                                'lifetime' => 7200,
-                            ],
-                        ],
-                    ];
+                $driverName = $mlc->getString('session.driver', 'file') ?? 'file';
+                $lifetime = $mlc->getInt('session.lifetime', 7200) ?? 7200;
 
-                return (object) [
-                    'config' => $configArray
-                ];
-            },
-
-            SessionDriverInterface::class => static function ($c) {
-                $config = $c->get('session_config')->config ?? [];
-
-                if (
-                    !isset($config['default']) ||
-                    !is_string($config['default']) ||
-                    $config['default'] === '' ||
-                    !isset($config['drivers'][$config['default']]) ||
-                    !is_array($config['drivers'][$config['default']])
-                ) {
-                    throw new \InvalidArgumentException(
-                        'Invalid session configuration: default driver not defined or missing driver config'
-                    );
-                }
-
-                $driverName   = $config['default'];
-                $driverConfig = $config['drivers'][$driverName];
+                $driverConfig = match ($driverName) {
+                    'file' => [
+                        'path'     => base_path($mlc->getString('session.file.path', 'var/sessions') ?? 'var/sessions'),
+                        'lifetime' => $lifetime,
+                    ],
+                    'database' => [
+                        'connection' => $c->get(ConnectionManagerInterface::class),
+                        'table'      => $mlc->getString('session.database.table', 'sessions') ?? 'sessions',
+                        'lifetime'   => $lifetime,
+                    ],
+                    'redis' => [
+                        'redis'    => $c->get(\Redis::class),
+                        'prefix'   => $mlc->getString('session.redis.prefix', 'session:') ?? 'session:',
+                        'lifetime' => $lifetime,
+                    ],
+                    default => throw new \InvalidArgumentException(
+                        sprintf('Unsupported session driver "%s". Supported: file, database, redis.', $driverName),
+                    ),
+                };
 
                 $factory = new DriverFactory();
-
-                switch ($driverName) {
-                    case 'file':
-                        $driverConfig['path'] = $driverConfig['path'] ?? base_path('var/sessions');
-                        break;
-                    case 'database':
-                        $conn = $c->get(ConnectionInterface::class);
-                        $driverConfig['connection'] = $conn;
-                        break;
-                    case 'redis':
-                        $driverConfig['redis'] = $c->get(\Redis::class);
-                        break;
-                    default:
-                        throw new \InvalidArgumentException(
-                            sprintf(
-                                'Unsupported session driver "%s". Supported drivers are: file, database, redis.',
-                                $driverName
-                            )
-                        );
-                }
 
                 return $factory->make($driverName, $driverConfig);
             },
 
-            SessionManager::class => static function ($c) {
-                $config = $c->get('session_config')->config ?? [];
-
-                $serializer = new \MonkeysLegion\Session\NativeSerializer();
-                if (isset($config['encrypt'])) {
-                    $keys = $config['keys'] ?? [];
-                    $serializer = match ($config['encrypt']) {
-                        true => new \MonkeysLegion\Session\EncryptedSerializer($serializer, $keys),
-                        default => $serializer,
-                    };
-                }
+            SessionManager::class => static function ($c): SessionManager {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
 
                 return new SessionManager(
-                    $c->get(SessionDriverInterface::class),
-                    $serializer
+                    driver: $c->get(SessionDriverInterface::class),
+                    dataHandler: new NativeSerializer(),
+                    sessionName: $mlc->getString('session.cookie.name', 'ml_session') ?? 'ml_session',
                 );
             },
 
-            SessionMiddleware::class => static function ($c) {
-                $config = $c->get('session_config')->config ?? [];
+            SessionMiddleware::class => static function ($c): SessionMiddleware {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
 
                 return new SessionMiddleware(
-                    $c->get(SessionManager::class),
-                    $config
+                    manager: $c->get(SessionManager::class),
+                    config: [
+                        'cookie_name'     => $mlc->getString('session.cookie.name', 'ml_session') ?? 'ml_session',
+                        'cookie_lifetime' => $mlc->getInt('session.lifetime', 7200) ?? 7200,
+                        'cookie_path'     => $mlc->getString('session.cookie.path', '/') ?? '/',
+                        'cookie_domain'   => $mlc->getString('session.cookie.domain', '') ?? '',
+                        'cookie_secure'   => $mlc->getBool('session.cookie.secure', true) ?? true,
+                        'cookie_httponly'  => $mlc->getBool('session.cookie.httponly', true) ?? true,
+                        'cookie_samesite' => $mlc->getString('session.cookie.same_site', 'Lax') ?? 'Lax',
+                    ],
                 );
             },
 
-            VerifyCsrfToken::class => static function ($c) {
-                return new VerifyCsrfToken($c->get(SessionManager::class));
-            },
+            VerifyCsrfToken::class => fn($c): VerifyCsrfToken => new VerifyCsrfToken(
+                $c->get(SessionManager::class),
+            ),
         ];
     }
 }

@@ -4,30 +4,22 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Config\Providers;
 
-use MonkeysLegion\Validation\AttributeValidator;
+use MonkeysLegion\Validation\Contracts\ValidatorInterface;
 use MonkeysLegion\Validation\DtoBinder;
-use MonkeysLegion\Validation\Middleware\ValidationMiddleware;
-use MonkeysLegion\Validation\ValidatorInterface;
+use MonkeysLegion\Validation\Validator;
 
+/**
+ * Validation engine and DTO binder provider.
+ */
 final class ValidationProvider extends AbstractServiceProvider
 {
-    public function context(): string
-    {
-        return 'http';
-    }
-
     public function getDefinitions(): array
     {
         return [
-            ValidatorInterface::class => fn() => new AttributeValidator(),
-
-            DtoBinder::class => fn($c) => new DtoBinder(
-                $c->get(ValidatorInterface::class)
-            ),
-
-            ValidationMiddleware::class => fn($c) => new ValidationMiddleware(
-                $c->get(DtoBinder::class),
-                []
+            Validator::class          => fn(): Validator => new Validator(),
+            ValidatorInterface::class => fn($c): Validator => $c->get(Validator::class),
+            DtoBinder::class          => fn($c): DtoBinder => new DtoBinder(
+                validator: $c->get(ValidatorInterface::class),
             ),
         ];
     }

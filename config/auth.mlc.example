@@ -1,49 +1,75 @@
-# MonkeysLegion Authentication Configuration
-# Copy to auth.mlc and adjust values
+# MonkeysLegion v2 — Auth Configuration
 
-# JWT Signing
-auth.jwt_secret    = env("AUTH_JWT_SECRET", "change_me_to_a_secure_random_string")
-auth.access_ttl    = 1800
-auth.refresh_ttl   = 604800
-auth.jwt_leeway    = 60
-auth.issuer        = "monkeyslegion"
-auth.audience      = "monkeyslegion_client"
+auth {
+    # JWT
+    jwt_secret  = env("JWT_SECRET", "")
+    access_ttl  = 1800     # 30 minutes
+    refresh_ttl = 604800   # 7 days
+    jwt_leeway  = 60
+    issuer      = env("APP_URL", "http://localhost:8080")
+    audience    = null
 
-# Password Hashing
-auth.password.algorithm = "bcrypt"
-auth.password.cost      = 12
+    # Password Hashing
+    password {
+        algorithm = "argon2id"  # bcrypt | argon2id | default
+        cost      = 12
+    }
 
-# User Provider
-auth.users.table = "users"
-auth.users.model = "App\\Entity\\User"
+    # Users
+    users {
+        table = "users"
+        model = "App\\Entity\\User"
+    }
 
-# Token Storage (Blacklist/Refresh)
-auth.token_storage.driver = "redis"
-auth.token_storage.prefix = "auth:"
+    # Rate Limiting
+    rate_limit {
+        enabled        = true
+        driver         = "cache"   # cache | redis | memory
+        max_attempts   = 60
+        lockout_seconds = 60
+    }
 
-# Rate Limiting
-auth.rate_limit.driver         = "redis"
-auth.rate_limit.enabled        = true
-auth.rate_limit.max_attempts   = 60
-auth.rate_limit.lockout_seconds = 60
+    # Token Storage
+    token_storage {
+        driver = "memory"  # memory | redis
+        prefix = "auth:"
+    }
 
-# Two Factor
-auth.two_factor.issuer = "MonkeysLegion"
+    # Public paths (no authentication required)
+    public_paths = [
+        "/",
+        "/login",
+        "/register",
+        "/api/auth/login",
+        "/api/auth/register",
+        "/api/auth/refresh",
+        "/health",
+    ]
 
-# Legacy / Compatibility
-auth.token = ""
-auth.public_paths = ["/login", "/register", "/health"]
+    # Two-Factor Authentication
+    two_factor {
+        issuer = env("APP_NAME", "MonkeysLegion")
+    }
+}
+
+# OAuth2 Providers
+oauth {
+    google {
+        enabled       = env("OAUTH_GOOGLE_ENABLED", false)
+        client_id     = env("OAUTH_GOOGLE_CLIENT_ID", "")
+        client_secret = env("OAUTH_GOOGLE_CLIENT_SECRET", "")
+        redirect_uri  = "/oauth/google/callback"
+    }
+
+    github {
+        enabled       = env("OAUTH_GITHUB_ENABLED", false)
+        client_id     = env("OAUTH_GITHUB_CLIENT_ID", "")
+        client_secret = env("OAUTH_GITHUB_CLIENT_SECRET", "")
+        redirect_uri  = "/oauth/github/callback"
+    }
+}
 
 # RBAC
-rbac.roles = []
-
-# OAuth Providers (uncomment and configure as needed)
-# oauth.google.enabled       = true
-# oauth.google.client_id     = env("OAUTH_GOOGLE_CLIENT_ID", "")
-# oauth.google.client_secret = env("OAUTH_GOOGLE_CLIENT_SECRET", "")
-# oauth.google.redirect_uri  = "/oauth/google/callback"
-
-# oauth.github.enabled       = true
-# oauth.github.client_id     = env("OAUTH_GITHUB_CLIENT_ID", "")
-# oauth.github.client_secret = env("OAUTH_GITHUB_CLIENT_SECRET", "")
-# oauth.github.redirect_uri  = "/oauth/github/callback"
+rbac {
+    roles = []
+}

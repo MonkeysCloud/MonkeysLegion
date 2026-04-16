@@ -1,0 +1,60 @@
+# MonkeysLegion v2 — File Storage Configuration
+
+files {
+    default = "local"
+
+    disks {
+        local {
+            driver      = "local"
+            root        = "storage/files"
+            url         = "/storage/files"
+            visibility  = "public"
+            permissions {
+                dir  = 0755
+                file = 0644
+            }
+        }
+    }
+
+    upload {
+        max_size     = 104857600        # 100 MB
+        chunk_size   = 5242880          # 5 MB
+        chunk_expiry = 86400            # 24 hours
+        temp_dir     = "var/tmp/uploads"
+        allowed_mimes = [
+            "image/jpeg",
+            "image/png",
+            "image/gif",
+            "image/webp",
+            "application/pdf",
+            "text/plain",
+        ]
+    }
+
+    image {
+        driver  = "gd"         # gd | imagick
+        quality = 85
+    }
+
+    database {
+        enabled = false
+        tables {
+            files       = "ml_files"
+            conversions = "ml_file_conversions"
+        }
+        track_access = true
+        soft_delete  = true
+    }
+
+    rate_limiting {
+        uploads_per_minute   = 10
+        bytes_per_hour       = 104857600  # 100 MB
+        concurrent_uploads   = 3
+    }
+
+    garbage_collection {
+        deleted_files_days       = 30
+        incomplete_uploads_hours = 24
+        unused_conversions_days  = 7
+    }
+}

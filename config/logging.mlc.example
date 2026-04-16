@@ -1,0 +1,9 @@
+# MonkeysLegion v2 — Logging Configuration
+
+logging {
+    channel   = "app"
+    path      = "var/logs"
+    level     = env("LOG_LEVEL", "debug")   # debug | info | notice | warning | error | critical
+    max_files = 14
+    json      = false
+}

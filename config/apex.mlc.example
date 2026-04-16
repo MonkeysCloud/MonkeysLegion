@@ -1,0 +1,9 @@
+# MonkeysLegion v2 — Apex AI/ML Configuration
+
+apex {
+    api_key  = env("APEX_API_KEY", "")
+    base_url = env("APEX_BASE_URL", "https://api.monkeys.cloud")
+    timeout  = 30
+    retries  = 3
+    model    = env("APEX_MODEL", "gpt-4")
+}

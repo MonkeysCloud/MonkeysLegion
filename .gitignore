@@ -7,11 +7,13 @@
 /dist/
 /*.phar
 
-# Logs and runtime cache
+# Runtime directories
+/var/
+/storage/
+/database/
+
+# Logs
 /logs/
-/cache/
-/tmp/
-/coverage/
 
 # IDE / editor settings
 /.idea/
@@ -28,8 +30,17 @@
 
 # PHPUnit and test artifacts
 /phpunit.xml
+/.phpunit.cache
 /phpunit.result.cache
+/coverage/
+
+# PHPStan cache
+/phpstan.cache/
 
 # OS-specific files
 .DS_Store
 Thumbs.db
+
+# MLC config (only examples are tracked)
+/config/*.mlc
+!/config/*.mlc.example
