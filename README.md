@@ -808,12 +808,39 @@ Created and maintained by the **MonkeysCloud** team.
 
 ## 🗺️ Roadmap
 
-- [ ] WebSocket Server / Real-time Broadcasting
-- [ ] GraphQL Support
-- [ ] Admin Panel Generator
-- [ ] Advanced CLI Scaffolding (make:controller, make:entity)
+### ✅ Completed in v2.0
+
+- [x] PHP 8.4 property hooks & attribute-first architecture
+- [x] 26-package modular ecosystem pinned to v2.0+
+- [x] MLC configuration with env cascading & production compilation
+- [x] Compiled DI container with atomic cache writes
+- [x] PSR-15 middleware pipeline with OWASP security headers
+- [x] Comprehensive auth: JWT, OAuth2, 2FA, RBAC, remember-me
+- [x] Apex AI/ML abstraction with OpenAI, cost tracking & embeddings
+- [x] OpenAPI v3 auto-generation from route attributes
+- [x] CLI scaffolding: `make:controller`, `make:entity`, `make:migration`, `make:middleware`, `make:dto`, `make:event`, `make:listener`, `make:policy`, `make:job`, `make:service`, `make:test`, `make:factory`, `make:seeder`, `make:enum`, `make:observer`, `make:resource`, `make:command`
+- [x] Database seeder and factory system (`seed:run`, `make:seeder`, `make:factory`)
+- [x] Telemetry: OpenTelemetry-compatible metrics, distributed tracing
+- [x] Event broadcasting interface (`ShouldBroadcast`)
+- [x] Maintenance mode with IP/secret bypass (`ml down` / `ml up`)
+- [x] Tinker REPL (`ml tinker`)
+- [x] 182-test suite with PHPUnit 11
+
+### 🔜 v2.1
+
 - [ ] Notifications package (email, SMS, Slack, push)
-- [ ] Database seeder and factory system
+- [ ] WebSocket server with real-time broadcasting driver
+- [ ] Database model factories for testing (`Factory::define()`)
+- [ ] Rate limiting per-route via attributes
+- [ ] API resource transformers & pagination
+
+### 🔮 v3.0
+
+- [ ] GraphQL support with attribute-based schema
+- [ ] Admin panel generator (CRUD scaffolding)
+- [ ] Fibers-based async HTTP client
+- [ ] Native Swoole/FrankenPHP runtime support
+- [ ] Plugin marketplace
 
 ---
 
