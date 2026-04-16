@@ -1,187 +1,283 @@
 # MonkeysLegion Framework
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![PHP Version](https://img.shields.io/badge/php-%5E8.4-blue)
-![Version](https://img.shields.io/badge/version-1.0-green)
+![PHP Version](https://img.shields.io/badge/php-%5E8.4-8892BF)
+![Version](https://img.shields.io/badge/version-2.0-brightgreen)
+![Tests](https://img.shields.io/badge/tests-182%20passed-success)
+![PSR](https://img.shields.io/badge/PSR-7%20|%2011%20|%2014%20|%2015%20|%2016%20|%2017-blue)
 
-**MonkeysLegion** is a modern, modular PHP framework designed for building high-performance web applications and APIs. It follows PSR standards and provides a comprehensive suite of integrated packages for rapid application development.
+**MonkeysLegion** is a high-performance, attribute-first PHP 8.4+ framework built for modern web applications and APIs. It leverages PHP 8.4 property hooks, strict types, and compiled DI to deliver a developer experience that rivals Laravel and Symfony — with zero runtime compromise.
 
-## 🚀 Features
+---
 
-- **🎯 PSR Compliant** - Fully compliant with PSR-7, PSR-11, PSR-14, PSR-15, PSR-16, PSR-17
-- **🔧 Modular Architecture** - Use only what you need with independent, composable packages
-- **🔐 Comprehensive Authentication** - JWT, OAuth2, 2FA, API Keys, RBAC, and Policies
-- **🗄️ Database Layer** - Query Builder, Migrations, Entity Scanner, and Repository Pattern
-- **🎨 Template Engine** - Powerful, custom template engine with caching
-- **🌐 Advanced Routing** - Attribute-based routing with middleware support and auto-discovery
-- **⚡ Dependency Injection** - Fast, PSR-11 compliant DI container
-- **📝 Validation** - Attribute-based validation with DTO binding
-- **🌍 Internationalization** - Multi-language support with database and file loaders
-- **📧 Email Service** - SMTP and API-based email delivery
-- **📊 Telemetry & Monitoring** - Metrics, Distributed Tracing and structured logging
-- **🎪 Event System** - PSR-14 event dispatcher for decoupled architecture
-- **💾 Caching** - Multiple cache backends (Redis, File, In-Memory)
-- **📨 Queue System** - Robust background job processing with workers
-- **📁 File Management** - Unified file storage and image processing
-- **📚 OpenAPI** - Auto-generated API documentation
-- **🔄 CLI Tools** - Powerful command-line interface for development tasks
+## 🚀 What's New in v2.0
+
+- **PHP 8.4 Property Hooks** — Native getters/setters via property hooks across all packages
+- **Attribute-First Architecture** — Routes, validation, providers, and commands discovered via attributes
+- **MLC Configuration** — `.mlc` file format with env interpolation, cascading, and production compilation
+- **Compiled DI Container** — Zero-overhead production builds with atomic cache writes
+- **26 Integrated Packages** — Every component pinned to v2.0+ for API consistency
+- **PSR-15 Middleware Pipeline** — Native security headers, CORS, rate limiting, CSRF, and request ID
+- **Apex AI/ML** — Built-in AI provider abstraction with OpenAI, cost tracking, and embeddings
+- **182-Test Suite** — Comprehensive PHPUnit 11 test coverage across all framework layers
+
+---
+
+## ✨ Features
+
+| Category | Details |
+|---|---|
+| **🎯 PSR Compliant** | PSR-7, PSR-11, PSR-14, PSR-15, PSR-16, PSR-17 |
+| **🔧 Modular** | 26 independent, composable packages |
+| **🔐 Auth** | JWT, OAuth2, 2FA, API Keys, RBAC, Policies, remember-me |
+| **🗄️ Database** | Connection manager, QueryBuilder, migrations, entity scanner |
+| **🎨 Templates** | Custom engine with caching, layouts, and directives |
+| **🌐 Routing** | Attribute-based, auto-discovered, grouped, middleware-aware |
+| **⚡ DI** | PSR-11 container with compiled cache for production |
+| **📝 Validation** | Attribute-based validation with DTO binding |
+| **🌍 I18n** | Multi-language with database and file loaders |
+| **📧 Mail** | SMTP and API-based email delivery |
+| **📊 Telemetry** | OpenTelemetry-compatible metrics, tracing, and structured logging |
+| **🎪 Events** | PSR-14 event dispatcher with listener auto-discovery |
+| **💾 Cache** | Redis, file, in-memory backends (PSR-16) |
+| **📨 Queue** | Background job processing with workers and retry |
+| **📁 Files** | Unified storage, image processing, garbage collection |
+| **📚 OpenAPI** | Auto-generated API docs from route attributes |
+| **🤖 AI/ML** | Apex: OpenAI provider, cost tracking, embeddings |
+| **🔄 CLI** | Attribute-discovered commands, schedule, dev-server |
+| **🛡️ Security** | OWASP headers, CORS, rate limiting, CSRF, maintenance mode |
+
+---
 
 ## 📦 Included Packages
 
-MonkeysLegion is a meta-package that bundles the following modular components:
+| Package | Version | Description |
+|---|---|---|
+| `monkeyslegion-core` | ^2.0 | Core utilities, helpers, and base contracts |
+| `monkeyslegion-di` | ^2.0 | PSR-11 dependency injection container |
+| `monkeyslegion-http` | ^2.0 | PSR-7/PSR-15/PSR-17 HTTP layer and security middleware |
+| `monkeyslegion-router` | ^2.1 | Attribute-based routing with auto-discovery |
+| `monkeyslegion-database` | ^2.0 | Connection manager, PDO abstraction, transactions |
+| `monkeyslegion-query` | ^2.0 | Fluent QueryBuilder with grammar compilation |
+| `monkeyslegion-entity` | ^2.0 | Entity scanner and metadata extraction |
+| `monkeyslegion-migration` | ^2.0 | Database migration generator and runner |
+| `monkeyslegion-auth` | ^2.1 | JWT, session guards, password hashing, RBAC |
+| `monkeyslegion-validation` | ^2.0 | Attribute-based validation and DTO binding |
+| `monkeyslegion-cache` | ^2.0 | PSR-16 cache: Redis, file, in-memory stores |
+| `monkeyslegion-session` | ^2.0 | Session manager with CSRF middleware |
+| `monkeyslegion-template` | ^2.0 | Template engine with caching and layouts |
+| `monkeyslegion-events` | ^2.0 | PSR-14 event dispatcher |
+| `monkeyslegion-logger` | ^2.0 | PSR-3 logger with rotating file handlers |
+| `monkeyslegion-queue` | ^1.2 | Queue factory, workers, and job dispatching |
+| `monkeyslegion-schedule` | ^1.1 | Task scheduling with cron expressions |
+| `monkeyslegion-mail` | ^1.1 | SMTP and API-based email |
+| `monkeyslegion-i18n` | ^2.1 | Internationalization and locale management |
+| `monkeyslegion-telemetry` | ^2.0 | Metrics, distributed tracing, request middleware |
+| `monkeyslegion-files` | ^2.0 | File storage, image processing, garbage collection |
+| `monkeyslegion-mlc` | ^3.2 | MLC config parser with env interpolation |
+| `monkeyslegion-cli` | ^2.0 | CLI kernel with attribute-discovered commands |
+| `monkeyslegion-apex` | ^1.0 | AI/ML abstraction: OpenAI, cost tracking |
+| `monkeyslegion-openapi` | ^1.0 | Auto-generated OpenAPI v3 documentation |
+| `monkeyslegion-dev-server` | ^1.0 | Built-in development server |
 
-| Package                    | Description                              |
-| -------------------------- | ---------------------------------------- |
-| `monkeyslegion-core`       | Core framework components and utilities  |
-| `monkeyslegion-http`       | PSR-7/PSR-15 HTTP layer and middleware   |
-| `monkeyslegion-router`     | Advanced routing with attribute support  |
-| `monkeyslegion-di`         | Dependency injection container           |
-| `monkeyslegion-database`   | Database abstraction and connections     |
-| `monkeyslegion-query`      | Query builder and ORM features           |
-| `monkeyslegion-entity`     | Entity scanner and metadata extraction   |
-| `monkeyslegion-migration`  | Database migration system                |
-| `monkeyslegion-auth`       | Complete authentication & authorization  |
-| `monkeyslegion-template`   | Custom template engine                   |
-| `monkeyslegion-mlc`        | Configuration file parser (.mlc format)  |
-| `monkeyslegion-validation` | Attribute-based validation               |
-| `monkeyslegion-i18n`       | Internationalization and localization    |
-| `monkeyslegion-events`     | PSR-14 event dispatcher                  |
-| `monkeyslegion-logger`     | Logging abstraction built on Monolog     |
-| `monkeyslegion-mail`       | Email sending capabilities               |
-| `monkeyslegion-cache`      | Cache abstraction layer                  |
-| `monkeyslegion-files`      | File operations and storage              |
-| `monkeyslegion-queue`      | Queue worker and job dispatching         |
-| `monkeyslegion-cli`        | Command-line interface kernel            |
-| `monkeyslegion-telemetry`  | Application metrics and tracing          |
-| `monkeyslegion-dev-server` | Development server for rapid prototyping |
+---
 
 ## 🔨 Installation
 
 ### Requirements
 
-- PHP 8.4 or higher
-- Composer 2.x
-- MySQL/MariaDB (or any PDO-supported database)
-- Redis (optional, for caching, queues, and rate limiting)
+- **PHP 8.4+** (uses property hooks and modern features)
+- **Composer 2.x**
+- **MySQL/MariaDB/PostgreSQL/SQLite** (any PDO-supported database)
+- **Redis** (optional — for caching, queues, sessions, and rate limiting)
 
 ### Quick Start
 
 ```bash
 # Install via Composer
+composer create-project monkeyscloud/monkeyslegion my-app
+
+# Or add to an existing project
 composer require monkeyscloud/monkeyslegion
+```
 
-# Create project structure
-mkdir my-app && cd my-app
-mkdir -p {app/Controller,app/Entity,config,public,resources/views,var/{cache,log}}
+### Project Structure
 
-# Create public/index.php
-cat > public/index.php << 'EOF'
+```
+my-app/
+├── app/
+│   ├── Controller/         # HTTP controllers with route attributes
+│   ├── Entity/             # Database entities
+│   ├── Provider/           # Custom service providers
+│   └── Middleware/         # Custom middleware
+├── bootstrap/
+│   ├── app.php             # Application factory
+│   └── env.php             # Environment loader
+├── config/                 # MLC configuration files
+│   ├── app.mlc
+│   ├── auth.mlc
+│   ├── database.mlc
+│   └── ...
+├── public/
+│   └── index.php           # HTTP entry point
+├── resources/
+│   └── views/              # Templates
+├── tests/                  # PHPUnit test suite
+├── var/
+│   ├── cache/              # Compiled container, templates
+│   └── logs/               # Application logs
+├── .env                    # Environment variables
+├── composer.json
+└── phpunit.xml
+```
+
+---
+
+## 🏗️ Architecture
+
+### Boot Sequence
+
+```
+public/index.php
+  └── bootstrap/app.php
+        └── Application::create(basePath)
+              ├── ENV cascade: .env → .env.local → .env.{APP_ENV} → .env.{APP_ENV}.local
+              ├── MLC config: config/*.mlc → Loader → Config (compiled in production)
+              ├── Service Providers: AppConfig → 19 providers → DI Container
+              ├── SAPI detection: HTTP → Kernel | CLI → CliKernel
+              └── run()
+```
+
+### Request Lifecycle (HTTP)
+
+```
+┌─────────────────────────────────────────────────┐
+│  ServerRequest::fromGlobals()                   │
+├─────────────────────────────────────────────────┤
+│  CoreRequestHandler (PSR-15 Pipeline)           │
+│  ├── SecurityHeadersMiddleware (OWASP)          │
+│  ├── TrustedProxyMiddleware                     │
+│  ├── RequestIdMiddleware                        │
+│  ├── CorsMiddleware                             │
+│  ├── RateLimitMiddleware                        │
+│  ├── MaintenanceModeMiddleware                  │
+│  ├── SessionMiddleware                          │
+│  ├── VerifyCsrfToken                            │
+│  ├── AuthenticationMiddleware                   │
+│  └── Router → Controller → Response             │
+├─────────────────────────────────────────────────┤
+│  SapiEmitter → Client                          │
+└─────────────────────────────────────────────────┘
+```
+
+---
+
+## 📚 Usage Guide
+
+### Entry Point (v2.0)
+
+**public/index.php**
+
+```php
 <?php
 
 declare(strict_types=1);
 
-define('ML_BASE_PATH', dirname(__DIR__));
+require __DIR__ . '/../vendor/autoload.php';
 
-require_once ML_BASE_PATH . '/vendor/autoload.php';
+$app = require __DIR__ . '/../bootstrap/app.php';
 
-use MonkeysLegion\Framework\HttpBootstrap;
-
-HttpBootstrap::run(ML_BASE_PATH);
-EOF
-
-# Create .env file
-cat > .env << 'EOF'
-APP_ENV=dev
-APP_DEBUG=true
-APP_URL=http://localhost:8000
-
-DB_HOST=localhost
-DB_PORT=3306
-DB_DATABASE=myapp
-DB_USERNAME=root
-DB_PASSWORD=
-DB_CHARSET=utf8mb4
-
-JWT_SECRET=your-secret-key-change-this
-EOF
-
-# Create bootstrap/env.php (if not exists)
-mkdir -p bootstrap
-cp vendor/monkeyscloud/monkeyslegion/bootstrap/env.php bootstrap/
-
-# Start development server
-php -S localhost:8000 -t public
+$app
+    ->withMiddleware([
+        App\Middleware\CustomMiddleware::class,
+    ])
+    ->withBindings([
+        App\Service\PaymentGateway::class => fn($c) => new App\Service\StripeGateway(
+            apiKey: $_ENV['STRIPE_API_KEY'],
+        ),
+    ])
+    ->run();
 ```
 
-## 📚 Documentation
+> **Migration from v1:** Replace `HttpBootstrap::run()` with `Application::create()->run()`. The legacy class still works but triggers a deprecation notice.
 
-### Architecture
+### Configuration (MLC Format)
 
-MonkeysLegion follows a layered architecture:
-
-```
-┌─────────────────────────────────────┐
-│     Controllers & Routes            │
-├─────────────────────────────────────┤
-│     Middleware Pipeline             │
-├─────────────────────────────────────┤
-│     Service Layer                   │
-├─────────────────────────────────────┤
-│     Repositories & Query Builder    │
-├─────────────────────────────────────┤
-│     Database Connection Layer       │
-└─────────────────────────────────────┘
-```
-
-### Configuration
-
-MonkeysLegion uses `.mlc` configuration files for clean, structured settings:
+MonkeysLegion uses `.mlc` files — a clean, typed config format with env interpolation:
 
 **config/app.mlc**
 
 ```mlc
 app {
     name = "My Application"
-    url = "http://localhost:8000"
+    url = "${env.APP_URL}"
     locale = "en"
     fallback_locale = "en"
+    timezone = "UTC"
 }
+```
 
-cache {
-    enabled = true
-    driver = "redis"
-    prefix = "myapp:"
+**config/database.mlc**
+
+```mlc
+database {
+    connections {
+        mysql {
+            driver = "mysql"
+            host = "${env.DB_HOST}"
+            port = 3306
+            database = "${env.DB_DATABASE}"
+            username = "${env.DB_USERNAME}"
+            password = "${env.DB_PASSWORD}"
+            charset = "utf8mb4"
+        }
+    }
 }
+```
 
+**config/auth.mlc**
+
+```mlc
 auth {
+    default_guard = "jwt"
     jwt_secret = "${env.JWT_SECRET}"
     access_ttl = 1800
     refresh_ttl = 604800
 
+    password {
+        algorithm = "argon2id"
+        memory_cost = 65536
+        time_cost = 4
+    }
+
     rate_limit {
-        driver = "cache"
         max_attempts = 60
         lockout_seconds = 60
     }
 }
 ```
 
+**Environment cascade:** `.env` → `.env.local` → `.env.{APP_ENV}` → `.env.{APP_ENV}.local`
+
 ### Routing
 
-Define routes using PHP attributes:
+Define routes using PHP 8 attributes with auto-discovery:
 
 ```php
 <?php
+
+declare(strict_types=1);
 
 namespace App\Controller;
 
 use MonkeysLegion\Router\Attribute\Route;
 use MonkeysLegion\Router\Attribute\Get;
 use MonkeysLegion\Router\Attribute\Post;
+use MonkeysLegion\Router\Attribute\Delete;
 use Psr\Http\Message\ResponseInterface;
 
 #[Route('/api/users', name: 'users')]
-class UserController
+final class UserController
 {
     #[Get('/', name: 'index')]
     public function index(): ResponseInterface
@@ -196,9 +292,16 @@ class UserController
     }
 
     #[Post('/', name: 'create')]
-    public function create(): ResponseInterface
+    public function create(CreateUserRequest $request): ResponseInterface
     {
+        // DTO is auto-validated via DtoBinder
         return json_response(['created' => true], 201);
+    }
+
+    #[Delete('/{id:\d+}', name: 'delete')]
+    public function delete(int $id): ResponseInterface
+    {
+        return json_response(null, 204);
     }
 }
 ```
@@ -206,42 +309,41 @@ class UserController
 ### Database & Query Builder
 
 ```php
-use MonkeysLegion\Query\QueryBuilder;
+use MonkeysLegion\Query\Query\QueryBuilder;
 
-// Get from container
 $qb = $container->get(QueryBuilder::class);
 
-// Simple queries
-$users = $qb->table('users')
+// Select
+$users = $qb->select(['id', 'name', 'email'])
+    ->from('users')
     ->where('status', '=', 'active')
     ->orderBy('created_at', 'DESC')
     ->limit(10)
     ->get();
 
 // Joins
-$posts = $qb->table('posts')
+$posts = $qb->select(['posts.*', 'users.name as author'])
+    ->from('posts')
     ->join('users', 'posts.user_id', '=', 'users.id')
-    ->select(['posts.*', 'users.name as author'])
     ->get();
 
 // Transactions
-$qb->transaction(function($qb) {
-    $qb->table('orders')->insert(['total' => 100]);
-    $qb->table('inventory')->update(['stock' => 'stock - 1']);
+$connection->transaction(function () use ($qb): void {
+    $qb->insert('orders', ['total' => 100]);
+    $qb->update('inventory', ['stock' => 'stock - 1']);
 });
 ```
 
 ### Authentication
 
-MonkeysLegion provides comprehensive authentication out of the box:
-
 ```php
 use MonkeysLegion\Auth\Service\AuthService;
+use MonkeysLegion\Auth\Middleware\AuthenticationMiddleware;
 
 // Login
 $result = $authService->login([
-    'email' => 'user@example.com',
-    'password' => 'secret'
+    'email'    => 'user@example.com',
+    'password' => 'secret',
 ]);
 
 if ($result->isAuthenticated()) {
@@ -250,33 +352,21 @@ if ($result->isAuthenticated()) {
     // $tokens['refresh_token']
 }
 
-// Middleware protection
+// Protect routes via middleware
 #[Route('/admin', middleware: [AuthenticationMiddleware::class])]
-class AdminController { /* ... */ }
+final class AdminController { /* ... */ }
 ```
 
-#### Features:
+**Auth capabilities:** JWT, OAuth2 (Google, GitHub), TOTP 2FA, password reset, API keys, RBAC, policies, rate limiting, token blacklisting, remember-me.
 
-- ✅ JWT-based authentication
-- ✅ OAuth2 (Google, GitHub)
-- ✅ Two-Factor Authentication (TOTP)
-- ✅ Password reset & email verification
-- ✅ API key authentication
-- ✅ Role-Based Access Control (RBAC)
-- ✅ Policy-based authorization
-- ✅ Rate limiting
-- ✅ Token blacklisting
-
-### Validation
-
-Use attributes for clean validation:
+### Validation & DTO Binding
 
 ```php
 use MonkeysLegion\Validation\Attribute\Required;
 use MonkeysLegion\Validation\Attribute\Email;
 use MonkeysLegion\Validation\Attribute\MinLength;
 
-class CreateUserRequest
+final class CreateUserRequest
 {
     #[Required]
     #[MinLength(3)]
@@ -291,12 +381,47 @@ class CreateUserRequest
     public string $password;
 }
 
-// In controller
+// In controller — automatically validated and bound
 #[Post('/users')]
 public function create(CreateUserRequest $request): ResponseInterface
 {
-    // $request is automatically validated and bound
-    // Invalid data returns 422 response
+    // Invalid data returns 422 with structured errors
+}
+```
+
+### Service Providers
+
+Create custom modular providers with attribute discovery:
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Provider;
+
+use MonkeysLegion\Config\Providers\AbstractServiceProvider;
+use MonkeysLegion\Framework\Attributes\Provider;
+use MonkeysLegion\Framework\Attributes\BootAfter;
+use MonkeysLegion\Config\Providers\DatabaseProvider;
+
+#[Provider(priority: 10, context: 'all')]
+#[BootAfter(DatabaseProvider::class)]
+final class PaymentProvider extends AbstractServiceProvider
+{
+    public function getDefinitions(): array
+    {
+        return [
+            PaymentGateway::class => fn($c) => new StripeGateway(
+                apiKey: $_ENV['STRIPE_API_KEY'],
+            ),
+        ];
+    }
+
+    public function context(): string
+    {
+        return 'http'; // Only loaded during HTTP requests
+    }
 }
 ```
 
@@ -324,41 +449,89 @@ public function create(CreateUserRequest $request): ResponseInterface
 ```
 
 ```php
-// In controller
 use MonkeysLegion\Template\Renderer;
 
 public function index(Renderer $renderer): ResponseInterface
 {
     return $renderer->render('welcome', [
         'title' => 'Home',
-        'user' => ['name' => 'John'],
-        'posts' => $this->getPosts()
+        'user'  => ['name' => 'John'],
+        'posts' => $this->getPosts(),
     ]);
 }
 ```
 
-### Events
-
-Leverage the PSR-14 event dispatcher:
+### Events (PSR-14)
 
 ```php
 // Define event
-class UserRegistered
+final readonly class UserRegistered
 {
-    public function __construct(public readonly int $userId) {}
+    public function __construct(public int $userId) {}
 }
 
 // Register listener
-use Psr\EventDispatcher\ListenerProviderInterface;
-
-$provider->addListener(UserRegistered::class, function(UserRegistered $event) {
-    // Audit Log
+$provider->addListener(UserRegistered::class, function (UserRegistered $event): void {
+    // Send welcome email, audit log, etc.
 });
 
 // Dispatch
-use Psr\EventDispatcher\EventDispatcherInterface;
+$dispatcher->dispatch(new UserRegistered($user->getAuthIdentifier()));
+```
 
-$dispatcher->dispatch(new UserRegistered($user->getId()));
+### AI/ML with Apex
+
+```php
+use MonkeysLegion\Apex\AI;
+
+$ai = $container->get(AI::class);
+
+// Chat completion
+$response = $ai->chat([
+    ['role' => 'user', 'content' => 'Explain PHP property hooks.'],
+]);
+
+echo $response->content;
+echo $response->usage->totalTokens;
+
+// Embeddings
+$vector = $ai->embed('Search query text');
+
+// Cost tracking (built-in)
+$cost = $ai->getCostTracker()->getTotalCost();
+```
+
+### Queue System
+
+```php
+use MonkeysLegion\Queue\Contracts\QueueInterface;
+
+$queue = $container->get(QueueInterface::class);
+
+// Dispatch job
+$queue->push(new SendEmailJob($userId));
+
+// Worker (CLI)
+// php bin/ml queue:work --tries=3 --timeout=60
+```
+
+### File Management
+
+```php
+use MonkeysLegion\Files\FilesManager;
+use MonkeysLegion\Files\Image\ImageProcessor;
+
+$files = $container->get(FilesManager::class);
+$image = $container->get(ImageProcessor::class);
+
+// Store upload
+$path = $files->store($uploadedFile, 'avatars');
+
+// Process image
+$image->process($path, [
+    'resize' => [150, 150],
+    'format' => 'webp',
+]);
 ```
 
 ### Internationalization
@@ -366,135 +539,103 @@ $dispatcher->dispatch(new UserRegistered($user->getId()));
 ```php
 use MonkeysLegion\I18n\Translator;
 
-$translator = $container->get(Translator::class);
+$t = $container->get(Translator::class);
 
-echo $translator->trans('welcome.message'); // "Welcome to our app"
-echo $translator->trans('user.greeting', ['name' => 'John']); // "Hello, John"
+echo $t->trans('welcome.message');                         // "Welcome!"
+echo $t->trans('user.greeting', ['name' => 'John']);       // "Hello, John"
 
-// Change locale
-$translator->setLocale('es');
-echo $translator->trans('welcome.message'); // "Bienvenido a nuestra aplicación"
+$t->setLocale('es');
+echo $t->trans('welcome.message');                         // "¡Bienvenido!"
 ```
 
-### Queue System
-
-Handle background tasks efficiently:
-
-```php
-use MonkeysLegion\Queue\Contracts\QueueDispatcherInterface;
-use App\Job\SendEmailJob;
-
-class RegistrationController {
-    public function __construct(private QueueDispatcherInterface $queue) {}
-
-    public function register(Request $request) {
-        // ... create user ...
-
-        // Dispatch job to queue
-        $this->queue->dispatch(new SendEmailJob($user->id));
-
-        return response()->json(['status' => 'queued']);
-    }
-}
-```
-
-**Worker Configuration:**
-
-```mlc
-queue {
-    default = "database"
-    batch_table = "job_batches"
-
-    worker {
-        sleep = 3
-        max_tries = 3
-        timeout = 60
-    }
-}
-```
-
-### File Management
-
-Manage files and images with ease:
-
-```php
-use MonkeysLegion\Files\FilesManager;
-use MonkeysLegion\Files\Image\ImageProcessor;
-
-class FileController {
-    public function __construct(
-        private FilesManager $files,
-        private ImageProcessor $image
-    ) {}
-
-    public function upload(Request $request) {
-        $file = $request->getUploadedFiles()['avatar'];
-
-        // Store file
-        $path = $this->files->store($file, 'avatars');
-
-        // Create thumbnail
-        $this->image->process($path, [
-            'resize' => [150, 150],
-            'format' => 'webp'
-        ]);
-
-        return response()->json(['path' => $path]);
-    }
-}
-```
-
-### OpenAPI / Swagger
-
-MonkeysLegion automatically generates OpenAPI v3 documentation from your routes and attributes.
-
-```php
-use MonkeysLegion\Http\OpenApi\OpenApiMiddleware;
-
-// Add middleware to your pipeline
-$app->add(OpenApiMiddleware::class);
-
-// Access via /api/docs (default path)
-```
-
-### Telemetry
-
-Built-in support for OpenTelemetry-compatible tracing and metrics:
+### Telemetry & Observability
 
 ```php
 use MonkeysLegion\Telemetry\Metrics\MetricsInterface;
 use MonkeysLegion\Telemetry\Tracing\TracerInterface;
 
+// Metrics
 $metrics->counter('http_requests_total')->inc();
+$metrics->histogram('response_time_ms')->observe($duration);
 
-$span = $tracer->startSpan('process_request');
+// Distributed tracing
+$span = $tracer->startSpan('process_order');
 // ... work ...
 $span->end();
 ```
 
-### Middleware
-
-Create custom middleware:
+### Maintenance Mode
 
 ```php
+// Activate: create var/maintenance.php
+file_put_contents('var/maintenance.php', '<?php return [
+    "retry"   => 600,
+    "message" => "Upgrading to v2.0...",
+];');
+
+// Bypass via secret: ?secret=bypass123
+// Bypass via IP whitelist: configured in MiddlewareProvider
+
+// Deactivate: remove the file
+unlink('var/maintenance.php');
+```
+
+### CLI Commands
+
+```bash
+# Cache compiled container for production
+php bin/ml config:cache
+
+# Clear container cache
+php bin/ml config:clear
+
+# Run migrations
+php bin/ml migrate:run
+
+# Create migration
+php bin/ml make:migration CreateUsersTable
+
+# Clear application cache
+php bin/ml cache:clear
+
+# List all routes
+php bin/ml route:list
+
+# Start queue worker
+php bin/ml queue:work
+
+# Run scheduled tasks
+php bin/ml schedule:run
+
+# Framework info
+php bin/ml about
+```
+
+### Custom Middleware
+
+```php
+<?php
+
+declare(strict_types=1);
+
+namespace App\Middleware;
+
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
-class CustomMiddleware implements MiddlewareInterface
+final class ApiVersionMiddleware implements MiddlewareInterface
 {
     public function process(
         ServerRequestInterface $request,
-        RequestHandlerInterface $handler
+        RequestHandlerInterface $handler,
     ): ResponseInterface {
-        // Before request
-        $request = $request->withAttribute('timestamp', time());
+        $request = $request->withAttribute('api_version', 'v2');
 
         $response = $handler->handle($request);
 
-        // After request
-        return $response->withHeader('X-Custom-Header', 'value');
+        return $response->withHeader('X-API-Version', '2.0');
     }
 }
 ```
@@ -504,151 +645,175 @@ Register in `config/middleware.mlc`:
 ```mlc
 middleware {
     global = [
-        "MonkeysLegion\\Core\\Middleware\\CorsMiddleware",
-        "App\\Middleware\\CustomMiddleware"
+        "MonkeysLegion\\Http\\Middleware\\SecurityHeadersMiddleware",
+        "MonkeysLegion\\Http\\Middleware\\CorsMiddleware",
+        "App\\Middleware\\ApiVersionMiddleware"
     ]
 }
 ```
 
-### CLI Commands
-
-```bash
-# Run migrations
-php bin/console migrate:run
-
-# Create migration
-php bin/console make:migration CreateUsersTable
-
-# Clear cache
-php bin/console cache:clear
-
-# List routes
-php bin/console route:list
-```
+---
 
 ## 🧪 Testing
 
-MonkeysLegion is designed with testability in mind:
+MonkeysLegion ships with a comprehensive test suite (PHPUnit 11):
+
+```bash
+# Run tests
+php vendor/bin/phpunit
+
+# Run with testdox output
+php vendor/bin/phpunit --testdox
+
+# Run specific test
+php vendor/bin/phpunit --filter=ApplicationTest
+
+# Static analysis (PHPStan Level 9)
+php vendor/bin/phpstan analyse
+```
+
+### Test Suite Coverage
+
+| Test Class | Target | Tests |
+|---|---|---|
+| `CompiledContainerCacheTest` | DI compiled cache | 14 |
+| `AttributeTest` | Provider & BootAfter attributes | 7 |
+| `MaintenanceModeMiddlewareTest` | Maintenance mode bypass | 7 |
+| `ProviderScannerTest` | Auto-discovery scanner | 4 |
+| `AppConfigTest` | Provider aggregator & context | 7 |
+| `ConfigLoaderTest` | MLC config loading | 4 |
+| `ProviderDefinitionsTest` | All 19 service providers | 90+ |
+| `ApplicationTest` | Boot lifecycle & container | 13 |
+| `ExceptionHandlerTest` | Error handling (JSON/HTML) | 10 |
+| `DatabaseUserProviderTest` | Auth user operations | 15 |
+| `HttpBootstrapTest` | v1 deprecation | 1 |
+| **Total** | | **182 tests, 440 assertions** |
+
+### Writing Tests
 
 ```php
+<?php
+
+declare(strict_types=1);
+
+namespace Tests\Feature;
+
+use MonkeysLegion\Framework\Application;
 use PHPUnit\Framework\TestCase;
 
-class UserServiceTest extends TestCase
+final class UserServiceTest extends TestCase
 {
-    public function testUserCreation(): void
+    private Application $app;
+
+    protected function setUp(): void
     {
-        $container = $this->buildTestContainer();
+        $this->app = Application::create(basePath: dirname(__DIR__));
+    }
+
+    public function testContainerResolvesService(): void
+    {
+        $container = $this->app->boot();
+
         $service = $container->get(UserService::class);
 
-        $user = $service->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com'
-        ]);
-
-        $this->assertInstanceOf(User::class, $user);
-        $this->assertEquals('test@example.com', $user->getEmail());
+        $this->assertInstanceOf(UserService::class, $service);
     }
 }
 ```
 
-## 🔧 Advanced Usage
+---
 
-### Automatic Provider Discovery (Recommended)
+## ⚡ Production Optimization
 
-MonkeysLegion can automatically discover and register your service contexts using attributes. Simply create a class in `app/Providers/` and tag it with the `#[Provider]` attribute.
+### Compiled Container
 
-```php
-namespace App\Providers;
+```bash
+# Compile DI definitions for zero-overhead resolution
+php bin/ml config:cache
 
-use MonkeysLegion\Framework\Attributes\Provider;
-use Psr\Log\LoggerInterface;
-
-#[Provider]
-final class MyCoolProvider
-{
-    /**
-     * The framework will automatically call this method and inject any dependencies.
-     */
-    public function register(LoggerInterface $logger): void
-    {
-        $logger->info("MyCoolProvider is registered!");
-    }
-}
+# Clear when definitions change
+php bin/ml config:clear
 ```
 
-The `register()` method supports full dependency injection from the container.
+### MLC Config Compilation
 
-### Manual Service Providers
+The `ConfigLoader` automatically compiles `.mlc` files to PHP arrays in `var/cache/config.compiled.php` for production. No parsing overhead on subsequent requests.
 
-Extend the framework with custom providers:
+### OPcache
 
-```php
-namespace App\Provider;
-
-use MonkeysLegion\DI\ContainerBuilder;
-
-class PaymentServiceProvider
-{
-    public static function register(string $root, ContainerBuilder $builder): void
-    {
-        $builder->addDefinitions([
-            PaymentGateway::class => fn($c) => new StripeGateway(
-                apiKey: $_ENV['STRIPE_API_KEY']
-            ),
-        ]);
-    }
-}
+```ini
+; php.ini recommended settings
+opcache.enable=1
+opcache.validate_timestamps=0    ; Disable in production
+opcache.max_accelerated_files=20000
+opcache.memory_consumption=256
+opcache.interned_strings_buffer=16
+opcache.jit=1255
+opcache.jit_buffer_size=128M
 ```
 
-Register in `composer.json`:
+---
 
-```json
-{
-  "extra": {
-    "monkeyslegion": {
-      "providers": ["App\\Provider\\PaymentServiceProvider"]
-    }
-  }
-}
-```
+## 🔧 Environment Configuration
 
-### Environment Configuration
+| Variable | Default | Description |
+|---|---|---|
+| `APP_ENV` | `production` | Environment: `production`, `staging`, `dev`, `testing` |
+| `APP_DEBUG` | `false` | Enable debug mode (error details, stack traces) |
+| `APP_URL` | — | Application base URL |
+| `APP_TIMEZONE` | `UTC` | Default timezone |
+| `DB_CONNECTION` | `mysql` | Database driver |
+| `DB_HOST` | `127.0.0.1` | Database host |
+| `DB_PORT` | `3306` | Database port |
+| `DB_DATABASE` | — | Database name |
+| `DB_USERNAME` | `root` | Database user |
+| `DB_PASSWORD` | — | Database password |
+| `JWT_SECRET` | — | JWT signing key |
+| `REDIS_HOST` | `127.0.0.1` | Redis host |
+| `REDIS_PORT` | `6379` | Redis port |
 
-Create environment-specific configuration:
-
-- `.env` - Base configuration
-- `.env.local` - Local overrides (gitignored)
-- `.env.production` - Production settings
-- `.env.production.local` - Production local overrides
+---
 
 ## 📖 API Reference
 
-For detailed API documentation, please visit [our documentation site](https://monkeyslegion.com/docs) or explore individual package repositories.
+For detailed API documentation, visit [monkeyslegion.com/docs](https://monkeyslegion.com/docs) or explore the individual package repositories on [GitHub](https://github.com/MonkeysCloud).
+
+---
 
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/my-feature`)
+3. Commit your changes (`git commit -m 'feat: add my feature'`)
+4. Push to the branch (`git push origin feature/my-feature`)
+5. Open a Pull Request
+
+---
+
 ## 📄 License
 
-MonkeysLegion is open-source software licensed under the [MIT license](LICENSE).
+MonkeysLegion is open-source software licensed under the [MIT License](LICENSE).
 
 ## 🙏 Credits
 
-Created and maintained by the MonkeysCloud team.
+Created and maintained by the **MonkeysCloud** team.
 
 ## 📞 Support
 
-- **Documentation**: https://monkeyslegion.com/docs
-- **Issues**: https://github.com/monkeyscloud/monkeyslegion/issues
-- **Discussions**: https://github.com/monkeyscloud/monkeyslegion/discussions
+- **Documentation**: [monkeyslegion.com/docs](https://monkeyslegion.com/docs)
+- **Issues**: [github.com/MonkeysCloud/MonkeysLegion/issues](https://github.com/MonkeysCloud/MonkeysLegion/issues)
+- **Discussions**: [github.com/MonkeysCloud/MonkeysLegion/discussions](https://github.com/MonkeysCloud/MonkeysLegion/discussions)
 
 ## 🗺️ Roadmap
 
 - [ ] WebSocket Server / Real-time Broadcasting
 - [ ] GraphQL Support
 - [ ] Admin Panel Generator
-- [ ] Advanced CLI Scaffolding
+- [ ] Advanced CLI Scaffolding (make:controller, make:entity)
+- [ ] Notifications package (email, SMS, Slack, push)
+- [ ] Database seeder and factory system
 
 ---
 
