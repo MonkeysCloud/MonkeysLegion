@@ -4,127 +4,139 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Framework\Auth;
 
-use MonkeysLegion\Auth\Contract\UserProviderInterface;
 use MonkeysLegion\Auth\Contract\AuthenticatableInterface;
+use MonkeysLegion\Auth\Contract\UserProviderInterface;
 use MonkeysLegion\Database\Contracts\ConnectionInterface;
-use RuntimeException;
 
-class DatabaseUserProvider implements UserProviderInterface
+/**
+ * Database-backed user provider for authentication.
+ *
+ * Implements all methods required by UserProviderInterface,
+ * resolving users from a configurable database table.
+ */
+final class DatabaseUserProvider implements UserProviderInterface
 {
     public function __construct(
-        private ConnectionInterface $connection,
-        private string $table = 'users',
-        private string $modelClass = 'App\\Entity\\User'
+        private readonly ConnectionInterface $connection,
+        private readonly string $table = 'users',
+        private readonly string $modelClass = 'App\\Entity\\User',
     ) {}
 
     public function findById(int|string $id): ?AuthenticatableInterface
     {
-        $stmt = $this->connection->pdo()->prepare("SELECT * FROM {$this->table} WHERE id = :id LIMIT 1");
-        $stmt->execute(['id' => $id]);
-        $data = $stmt->fetch(\PDO::FETCH_ASSOC);
-
-        return $data ? $this->hydrate($data) : null;
+        return $this->fetchOne("SELECT * FROM {$this->table} WHERE id = :id LIMIT 1", ['id' => $id]);
     }
 
     public function findByEmail(string $email): ?AuthenticatableInterface
     {
-        $stmt = $this->connection->pdo()->prepare("SELECT * FROM {$this->table} WHERE email = :email LIMIT 1");
-        $stmt->execute(['email' => $email]);
-        $data = $stmt->fetch(\PDO::FETCH_ASSOC);
-
-        return $data ? $this->hydrate($data) : null;
+        return $this->fetchOne("SELECT * FROM {$this->table} WHERE email = :email LIMIT 1", ['email' => $email]);
     }
 
-    public function findByCredentials(array $credentials): ?AuthenticatableInterface
+    public function findByRememberToken(int|string $id, string $token): ?AuthenticatableInterface
     {
-        if (empty($credentials)) {
-            return null;
-        }
-
-        $conditions = [];
-        $params = [];
-        foreach ($credentials as $key => $value) {
-            if ($key === 'password') {
-                continue;
-            }
-            $conditions[] = "{$key} = :{$key}";
-            $params[$key] = $value;
-        }
-
-        if (empty($conditions)) {
-            return null;
-        }
-
-        $sql = "SELECT * FROM {$this->table} WHERE " . implode(' AND ', $conditions) . " LIMIT 1";
-        $stmt = $this->connection->pdo()->prepare($sql);
-        $stmt->execute($params);
-        $data = $stmt->fetch(\PDO::FETCH_ASSOC);
-
-        return $data ? $this->hydrate($data) : null;
+        return $this->fetchOne(
+            "SELECT * FROM {$this->table} WHERE id = :id AND remember_token = :token LIMIT 1",
+            ['id' => $id, 'token' => $token],
+        );
     }
 
-    public function incrementTokenVersion(int|string $userId): void
+    public function findByApiKey(string $key): ?AuthenticatableInterface
     {
-        $stmt = $this->connection->pdo()->prepare("UPDATE {$this->table} SET token_version = token_version + 1 WHERE id = :id");
-        $stmt->execute(['id' => $userId]);
+        return $this->fetchOne(
+            "SELECT * FROM {$this->table} WHERE api_key = :key LIMIT 1",
+            ['key' => $key],
+        );
     }
 
     public function create(array $attributes): AuthenticatableInterface
     {
-        $columns = array_keys($attributes);
-        $placeholders = array_map(fn($col) => ':' . $col, $columns);
+        $pdo = $this->connection->pdo();
 
-        $sql = "INSERT INTO {$this->table} (" . implode(', ', $columns) . ") VALUES (" . implode(', ', $placeholders) . ")";
-        $stmt = $this->connection->pdo()->prepare($sql);
+        $columns = implode(', ', array_keys($attributes));
+        $placeholders = implode(', ', array_map(fn(string $k): string => ":{$k}", array_keys($attributes)));
+
+        $stmt = $pdo->prepare("INSERT INTO {$this->table} ({$columns}) VALUES ({$placeholders})");
         $stmt->execute($attributes);
 
-        $id = $this->connection->pdo()->lastInsertId();
+        $id = $pdo->lastInsertId();
 
-        // Fetch the created user to return full object (or just hydrate manually)
-        $attributes['id'] = $id;
-        // Default token_version if not set
-        if (!isset($attributes['token_version'])) {
-            $attributes['token_version'] = 0;
-        }
-
-        return $this->hydrate($attributes);
+        return $this->findById($id) ?? throw new \RuntimeException('User not found after creation.');
     }
 
-    public function updatePassword(int|string $userId, string $passwordHash): void
+    public function updatePassword(int|string $id, string $hashedPassword): void
     {
-        $stmt = $this->connection->pdo()->prepare("UPDATE {$this->table} SET password = :password WHERE id = :id");
-        $stmt->execute(['password' => $passwordHash, 'id' => $userId]);
+        $pdo = $this->connection->pdo();
+        $stmt = $pdo->prepare("UPDATE {$this->table} SET password = :password WHERE id = :id");
+        $stmt->execute(['password' => $hashedPassword, 'id' => $id]);
     }
 
-    private function hydrate(array $data): AuthenticatableInterface
+    public function incrementTokenVersion(int|string $id): void
     {
-        if (!class_exists($this->modelClass)) {
-            throw new RuntimeException("User model class '{$this->modelClass}' not found.");
+        $pdo = $this->connection->pdo();
+        $stmt = $pdo->prepare("UPDATE {$this->table} SET token_version = token_version + 1 WHERE id = :id");
+        $stmt->execute(['id' => $id]);
+    }
+
+    public function updateRememberToken(int|string $id, ?string $token): void
+    {
+        $pdo = $this->connection->pdo();
+        $stmt = $pdo->prepare("UPDATE {$this->table} SET remember_token = :token WHERE id = :id");
+        $stmt->execute(['token' => $token, 'id' => $id]);
+    }
+
+    // ── Private Helpers ──────────────────────────────────────────
+
+    /**
+     * Execute a query and hydrate the first row.
+     *
+     * @param array<string, mixed> $params
+     */
+    private function fetchOne(string $sql, array $params): ?AuthenticatableInterface
+    {
+        $pdo = $this->connection->pdo();
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+
+        $row = $stmt->fetch(\PDO::FETCH_ASSOC);
+
+        if ($row === false) {
+            return null;
         }
 
-        // Simple hydration assuming public properties or constructor parameters matching keys could be complex.
-        // For now, we'll try to instantiate and set properties if it has a constructor or just set properties.
-        // A robust implementation would use a hydrator. Here we assume the entity might have a static 'fromArray' or similar, 
-        // strictly speaking we should check.
-        // Let's assume a simple constructor or property assignment.
+        return $this->hydrate($row);
+    }
 
-        $user = new $this->modelClass();
+    /**
+     * Hydrate a database row into the configured model class.
+     *
+     * @param array<string, mixed> $row
+     */
+    private function hydrate(array $row): AuthenticatableInterface
+    {
+        $class = $this->modelClass;
 
-        // This is a naive hydrator.
-        foreach ($data as $key => $value) {
-            if (property_exists($user, $key)) {
+        if (!class_exists($class)) {
+            throw new \RuntimeException("User model class '{$class}' does not exist.");
+        }
 
-                // Handle property visibility via reflection to be safe
-                $reflection = new \ReflectionProperty($user, $key);
-                if (!$reflection->isPublic()) {
-                    $reflection->setAccessible(true);
-                }
-                $reflection->setValue($user, $value);
+        if (method_exists($class, 'fromDatabaseRow')) {
+            return $class::fromDatabaseRow($row);
+        }
+
+        // Reflection-based hydration
+        $reflection = new \ReflectionClass($class);
+        $user = $reflection->newInstanceWithoutConstructor();
+
+        foreach ($row as $column => $value) {
+            if ($reflection->hasProperty($column)) {
+                $prop = $reflection->getProperty($column);
+                $prop->setAccessible(true);
+                $prop->setValue($user, $value);
             }
         }
 
         if (!$user instanceof AuthenticatableInterface) {
-            throw new RuntimeException("User model '{$this->modelClass}' must implement AuthenticatableInterface.");
+            throw new \RuntimeException("User model '{$class}' must implement AuthenticatableInterface.");
         }
 
         return $user;

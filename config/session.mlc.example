@@ -1,0 +1,28 @@
+# MonkeysLegion v2 — Session Configuration
+
+session {
+    driver   = env("SESSION_DRIVER", "file")   # file | database | redis
+    lifetime = 7200                              # 2 hours
+    encrypt  = false
+
+    cookie {
+        name      = "ml_session"
+        path      = "/"
+        domain    = null
+        secure    = true
+        httponly  = true
+        same_site = "Lax"
+    }
+
+    file {
+        path = "var/sessions"
+    }
+
+    database {
+        table = "sessions"
+    }
+
+    redis {
+        prefix = "session:"
+    }
+}

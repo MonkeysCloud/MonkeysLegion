@@ -1,14 +1,16 @@
-# MonkeysLegion Cache Configuration
-# Copy to cache.mlc and adjust values
+# MonkeysLegion v2 — Cache Configuration
 
-cache.default = "file"
-cache.prefix  = "monkeys_cache_"
-cache.enabled = true
+cache {
+    default = env("CACHE_DRIVER", "file")   # file | redis
 
-# File store
-cache.stores.file.driver = "file"
-cache.stores.file.path   = "var/cache/data"
+    stores {
+        file {
+            path = "var/cache/data"
+        }
 
-# Redis store (requires redis.mlc configuration)
-cache.stores.redis.driver     = "redis"
-cache.stores.redis.connection = "default"
+        redis {
+            connection = "default"
+            prefix     = "cache:"
+        }
+    }
+}

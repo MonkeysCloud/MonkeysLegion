@@ -1,0 +1,28 @@
+# MonkeysLegion v2 — Security Configuration
+
+security {
+    # HTTP Security Headers (applied by SecurityHeadersMiddleware)
+    frame_options      = "DENY"
+    referrer_policy    = "strict-origin-when-cross-origin"
+    permissions_policy = "camera=(), microphone=(), geolocation=()"
+
+    # Content Security Policy (set empty to disable)
+    csp = ""
+
+    # HSTS (Strict-Transport-Security)
+    hsts {
+        enabled     = false
+        max_age     = 31536000
+        subdomains  = true
+        preload     = false
+    }
+
+    # Trusted Proxies (for X-Forwarded-* header restoration)
+    trusted_proxies = []
+    trusted_headers = [
+        "X-Forwarded-For",
+        "X-Forwarded-Proto",
+        "X-Forwarded-Host",
+        "X-Forwarded-Port",
+    ]
+}

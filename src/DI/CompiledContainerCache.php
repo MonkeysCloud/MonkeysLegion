@@ -7,26 +7,33 @@ namespace MonkeysLegion\DI;
 /**
  * Compiled container cache for production environments.
  *
- * Serializes the resolved provider definitions to a PHP file that can be
- * loaded via `require` on subsequent requests — zero reflection, zero glob,
- * fully opcache-friendly.
+ * Serializes DI definitions (excluding closures) to a PHP file
+ * for zero-overhead container building in production.
  */
 final class CompiledContainerCache
 {
     /**
-     * Attempt to load cached definitions.
+     * Check if a compiled cache file exists.
+     */
+    public static function exists(string $path): bool
+    {
+        return is_file($path) && is_readable($path);
+    }
+
+    /**
+     * Load the compiled definitions from cache.
      *
-     * @param string $path Absolute path to the cache file
-     * @return array<string, callable|object>|null Returns null if cache missing or corrupt
+     * @return array<string, mixed>|null
      */
     public static function load(string $path): ?array
     {
-        if (!is_file($path)) {
+        if (!self::exists($path)) {
             return null;
         }
 
         try {
             $data = require $path;
+
             return is_array($data) ? $data : null;
         } catch (\Throwable) {
             return null;
@@ -34,94 +41,79 @@ final class CompiledContainerCache
     }
 
     /**
-     * Compile definitions to a PHP cache file.
+     * Compile and write definitions to cache.
      *
-     * When possible, writes the resolved definitions array directly to a
-     * self-contained PHP file using `var_export`, so subsequent requests can
-     * simply `require` the file with no provider discovery or config rebuild.
+     * Closures are stripped — only scalar and array definitions are cached.
+     * Providers with closures will be re-resolved at runtime.
      *
-     * If the definitions contain closures (which cannot be safely exported),
-     * we fall back to bootstrapping via `AppConfig` at runtime.
-     *
-     * @param string $path  Absolute path to write cache file
-     * @param array  $definitions The DI definitions array
+     * @param array<string, mixed> $definitions
      */
     public static function compile(string $path, array $definitions): void
     {
+        $cacheable = [];
+
+        foreach ($definitions as $id => $definition) {
+            // Skip closures — they can't be serialized
+            if ($definition instanceof \Closure) {
+                continue;
+            }
+
+            // Skip callable arrays (e.g. [$object, 'method'])
+            if (is_array($definition) && is_callable($definition)) {
+                continue;
+            }
+
+            // Skip objects that aren't serializable
+            if (is_object($definition)) {
+                continue;
+            }
+
+            $cacheable[$id] = $definition;
+        }
+
+        if ($cacheable === []) {
+            return;
+        }
+
         $dir = dirname($path);
+
         if (!is_dir($dir)) {
             mkdir($dir, 0755, true);
         }
 
-        // Detect whether any definitions are closures; these cannot be
-        // reliably exported with var_export().
-        $hasClosures = false;
-        foreach ($definitions as $value) {
-            if ($value instanceof \Closure) {
-                $hasClosures = true;
-                break;
-            }
-        }
+        $content = '<?php declare(strict_types=1);' . "\n\n"
+            . '// MonkeysLegion v2 — Compiled Container Cache' . "\n"
+            . '// Generated: ' . date('Y-m-d H:i:s T') . "\n"
+            . '// DO NOT EDIT — regenerated automatically in production.' . "\n\n"
+            . 'return ' . var_export($cacheable, true) . ";\n";
 
-        $content = "<?php\n\n";
-        $content .= "/**\n * Compiled container cache.\n *\n";
-        $content .= " * Generated: " . date('Y-m-d H:i:s') . "\n";
-        $content .= " * Entries: " . count($definitions) . "\n";
-        $content .= " * DO NOT EDIT — regenerate with: ml config:cache\n */\n\n";
+        // Atomic write
+        $tmpPath = $path . '.tmp.' . bin2hex(random_bytes(4));
+        file_put_contents($tmpPath, $content, LOCK_EX);
+        rename($tmpPath, $path);
+    }
 
-        if ($hasClosures) {
-            // Fallback: rebuild definitions from providers at runtime.
-            $content .= "return (static function () {\n";
-            $content .= "    // Re-build definitions from providers (cached bootstrap)\n";
-            $content .= "    \$config = new \\MonkeysLegion\\Config\\AppConfig();\n";
-            $content .= "    return \$config();\n";
-            $content .= "})();\n";
-        } else {
-            // Fast path: cache the resolved definitions array directly.
-            $exported = var_export($definitions, true);
-            $content .= "return " . $exported . ";\n";
-        }
-
-        file_put_contents($path, $content, LOCK_EX);
-
-        // Make it writable for future cache clears
-        chmod($path, 0644);
-
-        // Invalidate opcache for this file if opcache is available
-        if (function_exists('opcache_invalidate')) {
-            opcache_invalidate($path, true);
+    /**
+     * Remove the compiled cache.
+     */
+    public static function clear(string $path): void
+    {
+        if (is_file($path)) {
+            unlink($path);
         }
     }
 
     /**
-     * Clear the compiled cache file.
-     *
-     * @param string $path Absolute path to the cache file
-     * @return bool True if file was successfully removed
+     * Validate the integrity of a compiled cache file.
      */
-    public static function clear(string $path): bool
+    public static function isValid(string $path): bool
     {
-        if (!is_file($path)) {
+        if (!self::exists($path)) {
             return false;
         }
 
-        $result = unlink($path);
+        $data = self::load($path);
 
-        // Invalidate opcache entry
-        if ($result && function_exists('opcache_invalidate')) {
-            opcache_invalidate($path, true);
-        }
-
-        return $result;
-    }
-
-    /**
-     * Check if a valid compiled cache exists.
-     *
-     * @param string $path Absolute path to the cache file
-     */
-    public static function exists(string $path): bool
-    {
-        return is_file($path) && is_readable($path);
+        return $data !== null && $data !== [];
     }
 }

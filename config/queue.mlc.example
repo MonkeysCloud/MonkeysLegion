@@ -1,0 +1,33 @@
+# MonkeysLegion v2 — Queue Configuration
+
+queue {
+    default     = env("QUEUE_DRIVER", "database")   # database | redis | sync
+    batch_table = "job_batches"
+
+    connections {
+        database {
+            table   = "jobs"
+            queue   = "default"
+            retry   = 90
+        }
+
+        redis {
+            connection = "default"
+            queue      = "default"
+            retry      = 90
+            block_for  = null
+        }
+
+        sync {
+            # No configuration needed
+        }
+    }
+
+    worker {
+        sleep                  = 3
+        max_tries              = 3
+        memory                 = 128
+        timeout                = 60
+        delayed_check_interval = 30
+    }
+}

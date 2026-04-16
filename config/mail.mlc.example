@@ -1,0 +1,29 @@
+# MonkeysLegion v2 — Mail Configuration
+
+mail {
+    default = env("MAIL_MAILER", "smtp")
+
+    from {
+        address = env("MAIL_FROM_ADDRESS", "noreply@example.com")
+        name    = env("MAIL_FROM_NAME", "MonkeysLegion")
+    }
+
+    mailers {
+        smtp {
+            host       = env("MAIL_HOST", "127.0.0.1")
+            port       = env("MAIL_PORT", 587)
+            encryption = env("MAIL_ENCRYPTION", "tls")   # tls | ssl | null
+            username   = env("MAIL_USERNAME", "")
+            password   = env("MAIL_PASSWORD", "")
+            timeout    = 30
+        }
+
+        sendmail {
+            path = "/usr/sbin/sendmail -bs"
+        }
+
+        log {
+            channel = "mail"
+        }
+    }
+}

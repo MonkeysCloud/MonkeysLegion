@@ -4,18 +4,17 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Config\Providers;
 
-use MonkeysLegion\Framework\Middleware\CallableMiddlewareAdapter;
-use MonkeysLegion\I18n\LocaleManager;
-use MonkeysLegion\I18n\Middleware\LocaleMiddleware;
-use MonkeysLegion\I18n\Translator;
-use MonkeysLegion\I18n\TranslatorFactory;
 use MonkeysLegion\Mlc\Config as MlcConfig;
-use MonkeysLegion\Template\Compiler as TemplateCompiler;
-use MonkeysLegion\Template\Loader as TemplateLoader;
-use MonkeysLegion\Template\Parser as TemplateParser;
-use MonkeysLegion\Template\Renderer as TemplateRenderer;
-use Psr\SimpleCache\CacheInterface;
+use MonkeysLegion\Template\Compiler;
+use MonkeysLegion\Template\Loader;
+use MonkeysLegion\Template\Parser;
+use MonkeysLegion\Template\Renderer;
 
+/**
+ * Template engine provider (parser, compiler, loader, renderer).
+ *
+ * HTTP-only context.
+ */
 final class TemplateProvider extends AbstractServiceProvider
 {
     public function context(): string
@@ -26,52 +25,27 @@ final class TemplateProvider extends AbstractServiceProvider
     public function getDefinitions(): array
     {
         return [
-            /* Template engine */
-            TemplateParser::class   => fn()   => new TemplateParser(),
-            TemplateCompiler::class => fn($c) => new TemplateCompiler($c->get(TemplateParser::class)),
-            TemplateLoader::class   => fn()   => new TemplateLoader(
-                base_path('resources/views'),
-                base_path('var/cache/views')
-            ),
-            TemplateRenderer::class => fn($c) => new TemplateRenderer(
-                $c->get(TemplateParser::class),
-                $c->get(TemplateCompiler::class),
-                $c->get(TemplateLoader::class),
-                (bool) $c->get(MlcConfig::class)->get('cache.enabled', true)
+            Parser::class => fn(): Parser => new Parser(),
+
+            Compiler::class => fn($c): Compiler => new Compiler(
+                $c->get(Parser::class),
             ),
 
-            /* I18n */
-            Translator::class => static function ($c) {
+            Loader::class => fn(): Loader => new Loader(
+                sourcePath: base_path('resources/views'),
+                cachePath: base_path('var/cache/views'),
+            ),
+
+            Renderer::class => static function ($c): Renderer {
                 /** @var MlcConfig $mlc */
                 $mlc = $c->get(MlcConfig::class);
 
-                return TranslatorFactory::create([
-                    'locale'   => $mlc->get('app.locale', 'en'),
-                    'fallback' => $mlc->get('app.fallback_locale', 'en'),
-                    'path'     => base_path('resources/lang'),
-                    'cache'    => $mlc->get('cache.enabled', true) ? $c->get(CacheInterface::class) : null,
-                ]);
-            },
-
-            LocaleManager::class => static function ($c) {
-                /** @var MlcConfig $mlc */
-                $mlc = $c->get(MlcConfig::class);
-
-                return TranslatorFactory::createLocaleManager([
-                    'default'   => $mlc->get('app.locale', 'en'),
-                    'fallback'  => $mlc->get('app.fallback_locale', 'en'),
-                    'supported' => $mlc->get('app.supported_locales', ['en']),
-                    'detectors' => $mlc->get('app.locale_detectors', ['url', 'session', 'cookie', 'header']),
-                ]);
-            },
-
-            LocaleMiddleware::class => static function ($c) {
-                $localeMiddleware = new LocaleMiddleware(
-                    $c->get(LocaleManager::class),
-                    $c->get(Translator::class)
+                return new Renderer(
+                    parser: $c->get(Parser::class),
+                    compiler: $c->get(Compiler::class),
+                    loader: $c->get(Loader::class),
+                    cacheEnabled: $mlc->getBool('cache.enabled', true) ?? true,
                 );
-
-                return new CallableMiddlewareAdapter($localeMiddleware);
             },
         ];
     }

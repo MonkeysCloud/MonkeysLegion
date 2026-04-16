@@ -1,13 +1,13 @@
-# MonkeysLegion Application Configuration
-# Copy to app.mlc and adjust values
+# MonkeysLegion v2 — Application Configuration
+# Environment variables are referenced with env("VAR_NAME", "default")
 
-app.url              = env("APP_URL", "http://localhost:8080")
-app.locale           = "en"
-app.fallback_locale  = "en"
-app.supported_locales = ["en", "es"]
-app.locale_detectors = ["url", "session", "cookie", "header"]
-
-# Routing configuration
-routing.cache = false
-routing.global_middleware = []
-routing.middleware_groups = {}
+app {
+    name     = env("APP_NAME", "MonkeysLegion")
+    env      = env("APP_ENV", "production")
+    debug    = env("APP_DEBUG", false)
+    url      = env("APP_URL", "http://localhost:8080")
+    timezone = env("APP_TIMEZONE", "UTC")
+    version  = "2.0.0"
+    key      = env("APP_KEY", "")
+    locale   = "en"
+}

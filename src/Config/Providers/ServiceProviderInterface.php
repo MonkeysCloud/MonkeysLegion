@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Config\Providers;
 
+use MonkeysLegion\DI\Container;
+
 /**
  * Contract for modular service-provider classes.
  *
@@ -34,4 +36,17 @@ interface ServiceProviderInterface
      * 'all'  — always loaded
      */
     public function context(): string;
+
+    /**
+     * Whether this provider should be deferred (lazy-loaded).
+     */
+    public function isDeferred(): bool;
+
+    /**
+     * Post-build initialization hook.
+     *
+     * Called after the container has been fully built, allowing providers
+     * to perform setup that depends on other services being registered.
+     */
+    public function boot(Container $container): void;
 }
