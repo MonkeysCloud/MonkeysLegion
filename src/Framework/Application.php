@@ -36,15 +36,9 @@ final class Application
 
     private ?Container $container = null;
 
-    public private(set) string $environment {
-        get => $this->environment;
-        set => $this->environment = $value;
-    }
+    public readonly string $environment;
 
-    public private(set) bool $debug {
-        get => $this->debug;
-        set => $this->debug = $value;
-    }
+    public readonly bool $debug;
 
     private function __construct(
         public readonly string $basePath,
@@ -68,6 +62,11 @@ final class Application
     }
 
     /**
+     * Register additional middleware classes to prepend to the HTTP pipeline.
+     *
+     * These are stored and made available to the Kernel via the container
+     * under the 'app.middleware' key so the pipeline can pick them up.
+     *
      * @param array<class-string> $middleware
      */
     public function withMiddleware(array $middleware): self
@@ -106,6 +105,14 @@ final class Application
         // ── Load MLC configuration ───────────────────────────────────
         $mlcConfig = ConfigLoader::loadMlc($this->basePath . '/config');
 
+        // ── Base definitions (always present, cached or not) ─────────
+        $baseDefinitions = [
+            self::class              => fn(): self => $this,
+            ContainerInterface::class => fn(Container $c): Container => $c,
+            MlcConfig::class         => fn(): MlcConfig => $mlcConfig,
+            'app.middleware'          => fn(): array => $this->additionalMiddleware,
+        ];
+
         // ── Try compiled container cache (production only) ───────────
         $cachePath = $this->basePath . '/var/cache/container.compiled.php';
         $isProduction = $this->environment === 'production';
@@ -115,6 +122,7 @@ final class Application
 
             if ($cached !== null) {
                 $this->container = (new ContainerBuilder())
+                    ->addDefinitions($baseDefinitions)
                     ->addDefinitions($cached)
                     ->build();
 
@@ -124,13 +132,7 @@ final class Application
 
         // ── Build fresh container ────────────────────────────────────
         $builder = new ContainerBuilder();
-
-        // Self-reference
-        $builder->addDefinitions([
-            self::class              => fn(): self => $this,
-            ContainerInterface::class => fn(Container $c): Container => $c,
-            MlcConfig::class         => fn(): MlcConfig => $mlcConfig,
-        ]);
+        $builder->addDefinitions($baseDefinitions);
 
         // User bindings
         if ($this->bindings !== []) {
@@ -140,8 +142,8 @@ final class Application
         // Core providers + user providers via AppConfig
         $appConfig = new AppConfig();
         $context = PHP_SAPI === 'cli' ? 'cli' : 'http';
-        $definitions = $appConfig($context);
-        $builder->addDefinitions($definitions);
+        $allDefinitions = $appConfig($context);
+        $builder->addDefinitions($allDefinitions);
 
         // Scan for #[Provider] attributed providers in app/
         $appProvidersDir = $this->basePath . '/app/Providers';
@@ -174,8 +176,12 @@ final class Application
         $this->container = $builder->build();
 
         // ── Compile cache for production ─────────────────────────────
+        // Collects all scalar/array definitions that survived the
+        // Closure/Object filter. The closures (service factories) are
+        // re-provided on boot by the providers; what we cache here are
+        // the resolved config values, flags, etc.
         if ($isProduction) {
-            CompiledContainerCache::compile($cachePath, $definitions);
+            CompiledContainerCache::compile($cachePath, $allDefinitions + $this->bindings);
         }
 
         return $this->container;

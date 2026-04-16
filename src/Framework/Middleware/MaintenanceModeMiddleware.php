@@ -57,9 +57,12 @@ final class MaintenanceModeMiddleware implements MiddlewareInterface
         }
 
         // Load custom maintenance data
-        $data = require $maintenanceFile;
-        $retryAfter = $data['retry'] ?? 3600;
-        $message = $data['message'] ?? 'We are currently performing maintenance. Please try again later.';
+        $raw = require $maintenanceFile;
+        $data = is_array($raw) ? $raw : [];
+        $retryAfter = max(0, (int) ($data['retry'] ?? 3600));
+        $message = is_string($data['message'] ?? null)
+            ? $data['message']
+            : 'We are currently performing maintenance. Please try again later.';
 
         $body = $this->buildMaintenancePage($message);
 

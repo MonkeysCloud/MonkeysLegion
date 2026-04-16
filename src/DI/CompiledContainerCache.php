@@ -87,10 +87,25 @@ final class CompiledContainerCache
             . '// DO NOT EDIT — regenerated automatically in production.' . "\n\n"
             . 'return ' . var_export($cacheable, true) . ";\n";
 
-        // Atomic write
+        // Atomic write with error handling
         $tmpPath = $path . '.tmp.' . bin2hex(random_bytes(4));
-        file_put_contents($tmpPath, $content, LOCK_EX);
-        rename($tmpPath, $path);
+
+        $written = file_put_contents($tmpPath, $content, LOCK_EX);
+
+        if ($written === false) {
+            @unlink($tmpPath);
+            return;
+        }
+
+        if (!@rename($tmpPath, $path)) {
+            @unlink($tmpPath);
+            return;
+        }
+
+        // Invalidate OPcache for the target path
+        if (function_exists('opcache_invalidate')) {
+            opcache_invalidate($path, true);
+        }
     }
 
     /**

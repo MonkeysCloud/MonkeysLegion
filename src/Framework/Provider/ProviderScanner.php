@@ -10,7 +10,7 @@ use MonkeysLegion\Framework\Attributes\Provider;
 
 /**
  * Scans directories for classes annotated with #[Provider] and returns
- * them sorted by priority and dependency order.
+ * them sorted by priority and then topologically by #[BootAfter] dependencies.
  */
 final class ProviderScanner
 {
@@ -82,11 +82,88 @@ final class ProviderScanner
             ];
         }
 
-        // Sort by priority (higher first), then topological sort by dependencies
+        // Sort by priority (higher first)
         usort($providers, static function (array $a, array $b): int {
             return $b['priority'] <=> $a['priority'];
         });
 
-        return array_column($providers, 'class');
+        // Topological sort by #[BootAfter] dependencies
+        return $this->topologicalSort($providers);
+    }
+
+    /**
+     * Perform a stable topological sort using Kahn's algorithm.
+     *
+     * Providers without dependencies or whose dependencies are not in
+     * the scanned set are placed first (in their priority order).
+     *
+     * @param array<array{class: string, priority: int, context: string, dependencies: list<string>}> $providers
+     * @return array<class-string<ServiceProviderInterface>>
+     */
+    private function topologicalSort(array $providers): array
+    {
+        if (count($providers) <= 1) {
+            return array_column($providers, 'class');
+        }
+
+        // Build adjacency: class → index, and in-degree counts
+        $indexMap = [];
+
+        foreach ($providers as $i => $p) {
+            $indexMap[$p['class']] = $i;
+        }
+
+        /** @var array<int, int> $inDegree */
+        $inDegree = array_fill(0, count($providers), 0);
+
+        /** @var array<int, list<int>> $edges  dependency → [dependents] */
+        $edges = array_fill(0, count($providers), []);
+
+        foreach ($providers as $i => $p) {
+            foreach ($p['dependencies'] as $dep) {
+                if (!isset($indexMap[$dep])) {
+                    continue; // Dependency not in scanned set — already loaded
+                }
+
+                $depIdx = $indexMap[$dep];
+                $edges[$depIdx][] = $i;
+                $inDegree[$i]++;
+            }
+        }
+
+        // Seed queue with zero-in-degree nodes (preserving priority order)
+        $queue = [];
+
+        foreach ($inDegree as $i => $deg) {
+            if ($deg === 0) {
+                $queue[] = $i;
+            }
+        }
+
+        $sorted = [];
+
+        while ($queue !== []) {
+            $idx = array_shift($queue);
+            $sorted[] = $providers[$idx]['class'];
+
+            foreach ($edges[$idx] as $dependent) {
+                $inDegree[$dependent]--;
+
+                if ($inDegree[$dependent] === 0) {
+                    $queue[] = $dependent;
+                }
+            }
+        }
+
+        // If cycle detected, append remaining providers unsorted
+        if (count($sorted) < count($providers)) {
+            foreach ($providers as $p) {
+                if (!in_array($p['class'], $sorted, true)) {
+                    $sorted[] = $p['class'];
+                }
+            }
+        }
+
+        return $sorted;
     }
 }

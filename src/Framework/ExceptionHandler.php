@@ -32,9 +32,7 @@ final class ExceptionHandler
 
         $statusCode = $this->resolveStatusCode($e);
 
-        if (!headers_sent()) {
-            $this->emitResponse($e, $statusCode);
-        }
+        $this->emitResponse($e, $statusCode);
     }
 
     /**
@@ -89,18 +87,17 @@ final class ExceptionHandler
     {
         $isJsonRequest = $this->isJsonRequest();
 
-        if ($this->container->has(ResponseFactoryInterface::class)) {
+        $body = $isJsonRequest
+            ? $this->buildJsonBody($e, $statusCode)
+            : $this->buildHtmlBody($e, $statusCode);
+
+        $contentType = $isJsonRequest ? 'application/json' : 'text/html';
+
+        // Try PSR-7 response + SapiEmitter
+        if (!headers_sent() && $this->container->has(ResponseFactoryInterface::class)) {
             /** @var ResponseFactoryInterface $factory */
             $factory = $this->container->get(ResponseFactoryInterface::class);
-            $response = $factory->createResponse($statusCode);
-
-            $body = $isJsonRequest
-                ? $this->buildJsonBody($e, $statusCode)
-                : $this->buildHtmlBody($e, $statusCode);
-
-            $contentType = $isJsonRequest ? 'application/json' : 'text/html';
-
-            $response = $response
+            $response = $factory->createResponse($statusCode)
                 ->withHeader('Content-Type', $contentType . '; charset=utf-8')
                 ->withHeader('X-Content-Type-Options', 'nosniff')
                 ->withHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
@@ -115,14 +112,14 @@ final class ExceptionHandler
             }
         }
 
-        // Fallback: raw output
-        http_response_code($statusCode);
-        header('Content-Type: ' . ($isJsonRequest ? 'application/json' : 'text/html') . '; charset=utf-8');
-        header('X-Content-Type-Options: nosniff');
+        // Fallback: raw output (headers only if they haven't been sent)
+        if (!headers_sent()) {
+            http_response_code($statusCode);
+            header('Content-Type: ' . $contentType . '; charset=utf-8');
+            header('X-Content-Type-Options: nosniff');
+        }
 
-        echo $isJsonRequest
-            ? $this->buildJsonBody($e, $statusCode)
-            : $this->buildHtmlBody($e, $statusCode);
+        echo $body;
     }
 
     /**
