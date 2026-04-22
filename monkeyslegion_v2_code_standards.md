@@ -1311,8 +1311,8 @@ graph TD
 
 | # | Package | v2 Key Changes |
 |---|---------|---------------|
-| 1 | `monkeyslegion` | Meta-package; adds `#[Provider]`, `#[BootAfter]` |
-| 2 | `monkeyslegion-core` | Property hooks in `Support\*`; new `Contracts` for cross-cutting |
+| 1 | `monkeyslegion` | Meta-package; `#[BootAfter]` |
+| 2 | `monkeyslegion-core` | Meta-package; adds `#[Provider]` And Property hooks in `Support\*`; new `Contracts` for cross-cutting |
 | 3 | `monkeyslegion-di` | `#[Lazy]` proxy; compiled container v2; scope support |
 | 4 | `monkeyslegion-http` | PSR-7 strict; `#[Throttle]`; JSON:API response builder |
 | 5 | `monkeyslegion-router` | `#[ApiResource]` auto-CRUD; route model binding; sub-domain routing |

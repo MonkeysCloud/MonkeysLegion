@@ -5,8 +5,8 @@ declare(strict_types=1);
 namespace MonkeysLegion\Framework\Provider;
 
 use MonkeysLegion\Config\Providers\ServiceProviderInterface;
+use MonkeysLegion\Core\Attribute\Provider;
 use MonkeysLegion\Framework\Attributes\BootAfter;
-use MonkeysLegion\Framework\Attributes\Provider;
 
 /**
  * Scans directories for classes annotated with #[Provider] and returns
@@ -15,13 +15,16 @@ use MonkeysLegion\Framework\Attributes\Provider;
 final class ProviderScanner
 {
     /**
-     * Scan a directory for #[Provider] attributed classes.
+     * Scan a directory for provider classes.
      *
      * @param string $directory Absolute path to scan
      * @param string $namespace PSR-4 namespace prefix for the directory
-     * @return array<class-string<ServiceProviderInterface>> Sorted provider class names
+     * @param bool   $attributeRequired If true, only classes with #[Provider] are returned.
+     *                                  If false, classes with either #[Provider] OR
+     *                                  ServiceProviderInterface are returned.
+     * @return array<class-string> Sorted provider class names
      */
-    public function scan(string $directory, string $namespace): array
+    public function scan(string $directory, string $namespace, bool $attributeRequired = true): array
     {
         if (!is_dir($directory)) {
             return [];
@@ -51,23 +54,43 @@ final class ProviderScanner
             }
 
             $reflection = new \ReflectionClass($className);
-
-            // Must implement ServiceProviderInterface
-            if (!$reflection->implementsInterface(ServiceProviderInterface::class)) {
-                continue;
-            }
-
-            // Must have #[Provider] attribute
+            $hasInterface = $reflection->implementsInterface(ServiceProviderInterface::class);
             $attrs = $reflection->getAttributes(Provider::class);
+            $hasAttr = !empty($attrs);
 
-            if ($attrs === []) {
-                continue;
+            // 1. Discovery filtering
+            if ($attributeRequired) {
+                if (!$hasAttr) {
+                    continue;
+                }
+            } else {
+                if (!$hasAttr && !$hasInterface) {
+                    continue;
+                }
             }
 
-            /** @var Provider $providerAttr */
-            $providerAttr = $attrs[0]->newInstance();
+            // 2. Metadata extraction (Priority & Context)
+            $priority = 0;
+            $context  = 'all';
 
-            // Collect #[BootAfter] dependencies
+            if ($hasAttr) {
+                /** @var Provider $providerAttr */
+                $providerAttr = $attrs[0]->newInstance();
+                $priority = $providerAttr->priority;
+                $context  = $providerAttr->context;
+            } elseif ($hasInterface) {
+                // If no attribute but has interface, we instantiation a temporary
+                // instance to get its default context (since interface methods aren't static)
+                /** @var ServiceProviderInterface $instance */
+                $instance = $reflection->newInstanceWithoutConstructor();
+                try {
+                    $context = $instance->context();
+                } catch (\Throwable) {
+                    $context = 'all';
+                }
+            }
+
+            // 3. Dependency collection (only via attribute)
             $bootAfterAttrs = $reflection->getAttributes(BootAfter::class);
             $dependencies    = array_map(
                 static fn(\ReflectionAttribute $attr): string => $attr->newInstance()->dependency,
@@ -76,8 +99,8 @@ final class ProviderScanner
 
             $providers[] = [
                 'class'        => $className,
-                'priority'     => $providerAttr->priority,
-                'context'      => $providerAttr->context,
+                'priority'     => $priority,
+                'context'      => $context,
                 'dependencies' => $dependencies,
             ];
         }
