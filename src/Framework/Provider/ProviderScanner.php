@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Framework\Provider;
 
+use MonkeysLegion\Contracts\ServiceProviderInterface as ContractsInterface;
 use MonkeysLegion\Config\Providers\ServiceProviderInterface;
 use MonkeysLegion\Framework\Attributes\BootAfter;
 use MonkeysLegion\Framework\Attributes\Provider;
@@ -19,7 +20,7 @@ final class ProviderScanner
      *
      * @param string $directory Absolute path to scan
      * @param string $namespace PSR-4 namespace prefix for the directory
-     * @return array<class-string<ServiceProviderInterface>> Sorted provider class names
+     * @return array<class-string<ContractsInterface>> Sorted provider class names
      */
     public function scan(string $directory, string $namespace): array
     {
@@ -52,8 +53,8 @@ final class ProviderScanner
 
             $reflection = new \ReflectionClass($className);
 
-            // Must implement ServiceProviderInterface
-            if (!$reflection->implementsInterface(ServiceProviderInterface::class)) {
+            // Must implement ServiceProviderInterface (contracts or framework-local)
+            if (!$reflection->implementsInterface(ContractsInterface::class)) {
                 continue;
             }
 

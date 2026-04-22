@@ -10,6 +10,7 @@ use MonkeysLegion\DI\Container;
 use MonkeysLegion\DI\ContainerBuilder;
 use MonkeysLegion\DI\CompiledContainerCache;
 use MonkeysLegion\Framework\Provider\ProviderScanner;
+use MonkeysLegion\Contracts\ServiceProviderInterface as ContractsInterface;
 use MonkeysLegion\Config\Providers\ServiceProviderInterface;
 use MonkeysLegion\Mlc\Config as MlcConfig;
 use Psr\Container\ContainerInterface;
@@ -25,7 +26,7 @@ use Psr\Container\ContainerInterface;
  */
 final class Application
 {
-    /** @var array<class-string<ServiceProviderInterface>> */
+    /** @var array<class-string<ContractsInterface>> */
     private array $additionalProviders = [];
 
     /** @var array<class-string> */
@@ -53,7 +54,7 @@ final class Application
     }
 
     /**
-     * @param array<class-string<ServiceProviderInterface>> $providers
+     * @param array<class-string<ContractsInterface>> $providers
      */
     public function withProviders(array $providers): self
     {
@@ -153,7 +154,7 @@ final class Application
             $scannedClasses = $scanner->scan($appProvidersDir, 'App\\Providers');
 
             foreach ($scannedClasses as $className) {
-                /** @var ServiceProviderInterface $provider */
+                /** @var ContractsInterface $provider */
                 $provider = new $className();
 
                 $providerContext = $provider->context();
@@ -168,7 +169,7 @@ final class Application
 
         // Additional runtime providers
         foreach ($this->additionalProviders as $providerClass) {
-            /** @var ServiceProviderInterface $provider */
+            /** @var ContractsInterface $provider */
             $provider = new $providerClass();
             $builder->addDefinitions($provider->getDefinitions());
         }
