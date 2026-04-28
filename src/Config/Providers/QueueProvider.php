@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Config\Providers;
 
-use MonkeysLegion\Database\Contracts\ConnectionInterface;
+use MonkeysLegion\Database\Contracts\ConnectionManagerInterface;
 use MonkeysLegion\Mlc\Config as MlcConfig;
 use MonkeysLegion\Queue\Batch\BatchRepository;
 use MonkeysLegion\Queue\Contracts\QueueDispatcherInterface;
@@ -21,6 +21,8 @@ use MonkeysLegion\Queue\Worker\Worker;
  * Queue driver, dispatcher, batch repository, rate limiter, and worker provider.
  *
  * Updated for monkeyslegion-queue 2.0:
+ *  - QueueFactory now accepts ConnectionManagerInterface ($dbConnectionManager).
+ *  - BatchRepository now accepts ConnectionManagerInterface ($connectionManager).
  *  - Worker now resolves optional deps (EventDispatcher, RateLimiter,
  *    BatchRepository, Logger) via ContainerAware — no constructor injection.
  *  - RateLimiterInterface is registered for optional per-queue throttling.
@@ -37,7 +39,7 @@ final class QueueProvider extends AbstractServiceProvider
 
                 return new QueueFactory(
                     config: $mlc->getArray('queue', []) ?? [],
-                    dbConnection: $c->get(ConnectionInterface::class),
+                    dbConnectionManager: $c->get(ConnectionManagerInterface::class),
                 );
             },
 
@@ -48,7 +50,7 @@ final class QueueProvider extends AbstractServiceProvider
                 $mlc = $c->get(MlcConfig::class);
 
                 return new BatchRepository(
-                    connection: $c->get(ConnectionInterface::class),
+                    connectionManager: $c->get(ConnectionManagerInterface::class),
                     table: $mlc->getString('queue.batch_table', 'job_batches') ?? 'job_batches',
                     queue: $c->get(QueueInterface::class),
                 );
