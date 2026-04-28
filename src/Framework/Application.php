@@ -42,6 +42,9 @@ final class Application
 
     public readonly bool $debug;
 
+    /** @var array<class-string>|null Memoized composer extra providers */
+    private static ?array $extrasCache = null;
+
     private function __construct(
         public readonly string $basePath,
     ) {
@@ -156,14 +159,26 @@ final class Application
             $scannedClasses = $scanner->scan($appProvidersDir, 'App\\Providers', attributeRequired: false);
         }
 
-        $extras = $this->registerExtras($this->basePath);
-        $allProviderClasses = [...$scannedClasses, ...$extras, ...$this->additionalProviders];
+        $extras = self::registerExtras($this->basePath);
+
+        // Deduplicate while preserving order
+        $allProviderClasses = array_values(array_unique([
+            ...$scannedClasses,
+            ...$extras,
+            ...$this->additionalProviders,
+        ]));
 
         /** @var object[] $activeProviders */
         $activeProviders = [];
 
         foreach ($allProviderClasses as $className) {
             $reflection = new \ReflectionClass($className);
+
+            // Skip abstract classes — they cannot be instantiated
+            if ($reflection->isAbstract()) {
+                continue;
+            }
+
             $isAppProvider = str_starts_with($className, 'App\\Providers');
             $hasInterface = $reflection->implementsInterface(ContractsInterface::class)
                          || $reflection->implementsInterface(ServiceProviderInterface::class);
@@ -181,7 +196,11 @@ final class Application
             } elseif ($hasInterface) {
                 /** @var ContractsInterface|ServiceProviderInterface $instance */
                 $instance = $reflection->newInstanceWithoutConstructor();
-                $providerContext = $instance->context();
+                try {
+                    $providerContext = $instance->context();
+                } catch (\Throwable) {
+                    $providerContext = 'all';
+                }
             }
 
             if ($providerContext !== 'all' && $providerContext !== $context) {
@@ -250,43 +269,85 @@ final class Application
         exit(1);
     }
 
-    private static function registerExtras($root): array
+    /**
+     * Discover providers declared in composer.json "extra.monkeyslegion.providers".
+     *
+     * Results are memoized to avoid re-parsing installed.json on every boot.
+     *
+     * @return array<class-string>
+     */
+    private static function registerExtras(string $root): array
     {
-        $composerExtraProviders = [];
+        if (self::$extrasCache !== null) {
+            return self::$extrasCache;
+        }
+
         $installedJson = $root . '/vendor/composer/installed.json';
 
         if (!file_exists($installedJson)) {
-            return [];
+            return self::$extrasCache = [];
         }
 
-        $data = json_decode(file_get_contents($installedJson), true);
-        $packages = $data['packages'] ?? [];
+        $installedJsonContents = file_get_contents($installedJson);
+
+        if ($installedJsonContents === false) {
+            return self::$extrasCache = [];
+        }
+
+        $data = json_decode($installedJsonContents, true);
+
+        if (!is_array($data)) {
+            return self::$extrasCache = [];
+        }
+
+        // Handle both Composer 1.x (flat array) and 2.x (nested under 'packages')
+        $packages = [];
+
+        if (isset($data['packages']) && is_array($data['packages'])) {
+            $packages = $data['packages'];
+        } else {
+            foreach ($data as $installedSet) {
+                if (is_array($installedSet) && isset($installedSet['packages']) && is_array($installedSet['packages'])) {
+                    $packages = array_merge($packages, $installedSet['packages']);
+                }
+            }
+        }
 
         $composerExtraProviders = [];
 
         foreach ($packages as $package) {
-            // Check if the package has the "monkeyslegion" extra key
-            if (isset($package['extra']['monkeyslegion']['providers'])) {
-                $providers = $package['extra']['monkeyslegion']['providers'];
+            if (!is_array($package)) {
+                continue;
+            }
 
-                // Merge them into your list
-                foreach ($providers as $provider) {
+            if (isset($package['extra']['monkeyslegion']['providers']) && is_array($package['extra']['monkeyslegion']['providers'])) {
+                foreach ($package['extra']['monkeyslegion']['providers'] as $provider) {
                     $composerExtraProviders[] = $provider;
                 }
             }
         }
-        // Filter providers that don't have #[Provider] attribute and filter duplication
+
+        // Filter: only keep providers that have #[Provider] attribute and deduplicate
+        $seen = [];
         $filteredProviders = [];
+
         foreach ($composerExtraProviders as $providerClass) {
+            if (isset($seen[$providerClass])) {
+                continue;
+            }
+
+            $seen[$providerClass] = true;
+
             if (class_exists($providerClass)) {
                 $reflectionClass = new \ReflectionClass($providerClass);
                 $attributes = $reflectionClass->getAttributes(Provider::class);
+
                 if (!empty($attributes)) {
                     $filteredProviders[] = $providerClass;
                 }
             }
         }
 
-        return $filteredProviders;
+        return self::$extrasCache = $filteredProviders;
     }
 }

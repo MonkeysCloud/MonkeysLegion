@@ -60,6 +60,11 @@ final class ProviderScanner
             $attrs = $reflection->getAttributes(Provider::class);
             $hasAttr = !empty($attrs);
 
+            // Skip abstract classes — they cannot be instantiated
+            if ($reflection->isAbstract()) {
+                continue;
+            }
+
             // 1. Discovery filtering
             if ($attributeRequired) {
                 if (!$hasAttr) {
