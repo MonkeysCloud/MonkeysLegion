@@ -15,6 +15,7 @@ use MonkeysLegion\Config\Providers\FilesProvider;
 use MonkeysLegion\Config\Providers\HttpFactoryProvider;
 use MonkeysLegion\Config\Providers\I18nProvider;
 use MonkeysLegion\Config\Providers\LoggerProvider;
+use MonkeysLegion\Config\Providers\MailProvider;
 use MonkeysLegion\Config\Providers\MiddlewareProvider;
 use MonkeysLegion\Config\Providers\OpenApiProvider;
 use MonkeysLegion\Config\Providers\QueueProvider;
@@ -51,6 +52,7 @@ final class AppConfig
         ValidationProvider::class,
         I18nProvider::class,
         QueueProvider::class,
+        MailProvider::class,
         FilesProvider::class,
         TelemetryProvider::class,
         ApexProvider::class,

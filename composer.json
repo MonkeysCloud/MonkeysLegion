@@ -23,7 +23,7 @@
         "monkeyscloud/monkeyslegion-http": "^2.0",
         "monkeyscloud/monkeyslegion-i18n": "^2.1",
         "monkeyscloud/monkeyslegion-logger": "^2.0",
-        "monkeyscloud/monkeyslegion-mail": "^1.1",
+        "monkeyscloud/monkeyslegion-mail": "^2.0",
         "monkeyscloud/monkeyslegion-migration": "^2.0",
         "monkeyscloud/monkeyslegion-mlc": "^3.2",
         "monkeyscloud/monkeyslegion-openapi": "^1.0",
