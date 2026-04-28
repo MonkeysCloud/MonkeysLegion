@@ -5,8 +5,7 @@ declare(strict_types=1);
 namespace MonkeysLegion\Config\Providers;
 
 use MonkeysLegion\Cli\CliKernel;
-use MonkeysLegion\Mlc\Config as MlcConfig;
-use Psr\Container\ContainerInterface;
+use MonkeysLegion\Cli\Support\CommandFinder;
 
 /**
  * CLI kernel and command registration provider.
@@ -23,9 +22,15 @@ final class CliProvider extends AbstractServiceProvider
     public function getDefinitions(): array
     {
         return [
-            CliKernel::class => fn($c): CliKernel => new CliKernel(
-                container: $c,
-            ),
+            CliKernel::class => function($c): CliKernel {
+                // 1. Discovery via CommandFinder (Composer PSR-4)
+                $discovered = CommandFinder::all();
+
+                return new CliKernel(
+                    container: $c,
+                    commands: [...$discovered],
+                );
+            },
         ];
     }
 }

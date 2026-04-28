@@ -6,8 +6,8 @@ namespace MonkeysLegion\Framework\Provider;
 
 use MonkeysLegion\Contracts\ServiceProviderInterface as ContractsInterface;
 use MonkeysLegion\Config\Providers\ServiceProviderInterface;
+use MonkeysLegion\Core\Attribute\Provider;
 use MonkeysLegion\Framework\Attributes\BootAfter;
-use MonkeysLegion\Framework\Attributes\Provider;
 
 /**
  * Scans directories for classes annotated with #[Provider] and returns
@@ -16,13 +16,16 @@ use MonkeysLegion\Framework\Attributes\Provider;
 final class ProviderScanner
 {
     /**
-     * Scan a directory for #[Provider] attributed classes.
+     * Scan a directory for provider classes.
      *
      * @param string $directory Absolute path to scan
      * @param string $namespace PSR-4 namespace prefix for the directory
-     * @return array<class-string<ContractsInterface>> Sorted provider class names
+     * @param bool   $attributeRequired If true, only classes with #[Provider] are returned.
+     *                                  If false, classes with either #[Provider] OR
+     *                                  ServiceProviderInterface are returned.
+     * @return array<class-string> Sorted provider class names
      */
-    public function scan(string $directory, string $namespace): array
+    public function scan(string $directory, string $namespace, bool $attributeRequired = true): array
     {
         if (!is_dir($directory)) {
             return [];
@@ -52,23 +55,49 @@ final class ProviderScanner
             }
 
             $reflection = new \ReflectionClass($className);
-
-            // Must implement ServiceProviderInterface (contracts or framework-local)
-            if (!$reflection->implementsInterface(ContractsInterface::class)) {
-                continue;
-            }
-
-            // Must have #[Provider] attribute
+            $hasInterface = $reflection->implementsInterface(ContractsInterface::class)
+                         || $reflection->implementsInterface(ServiceProviderInterface::class);
             $attrs = $reflection->getAttributes(Provider::class);
+            $hasAttr = !empty($attrs);
 
-            if ($attrs === []) {
+            // Skip abstract classes — they cannot be instantiated
+            if ($reflection->isAbstract()) {
                 continue;
             }
 
-            /** @var Provider $providerAttr */
-            $providerAttr = $attrs[0]->newInstance();
+            // 1. Discovery filtering
+            if ($attributeRequired) {
+                if (!$hasAttr) {
+                    continue;
+                }
+            } else {
+                if (!$hasAttr && !$hasInterface) {
+                    continue;
+                }
+            }
 
-            // Collect #[BootAfter] dependencies
+            // 2. Metadata extraction (Priority & Context)
+            $priority = 0;
+            $context  = 'all';
+
+            if ($hasAttr) {
+                /** @var Provider $providerAttr */
+                $providerAttr = $attrs[0]->newInstance();
+                $priority = $providerAttr->priority;
+                $context  = $providerAttr->context;
+            } elseif ($hasInterface) {
+                // If no attribute but has interface, we instantiate a temporary
+                // instance to get its default context (since interface methods aren't static)
+                /** @var ContractsInterface|ServiceProviderInterface $instance */
+                $instance = $reflection->newInstanceWithoutConstructor();
+                try {
+                    $context = $instance->context();
+                } catch (\Throwable) {
+                    $context = 'all';
+                }
+            }
+
+            // 3. Dependency collection (only via attribute)
             $bootAfterAttrs = $reflection->getAttributes(BootAfter::class);
             $dependencies    = array_map(
                 static fn(\ReflectionAttribute $attr): string => $attr->newInstance()->dependency,
@@ -77,8 +106,8 @@ final class ProviderScanner
 
             $providers[] = [
                 'class'        => $className,
-                'priority'     => $providerAttr->priority,
-                'context'      => $providerAttr->context,
+                'priority'     => $priority,
+                'context'      => $context,
                 'dependencies' => $dependencies,
             ];
         }
@@ -99,7 +128,7 @@ final class ProviderScanner
      * the scanned set are placed first (in their priority order).
      *
      * @param array<array{class: string, priority: int, context: string, dependencies: list<string>}> $providers
-     * @return array<class-string<ServiceProviderInterface>>
+     * @return array<class-string>
      */
     private function topologicalSort(array $providers): array
     {

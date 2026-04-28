@@ -12,6 +12,7 @@ use MonkeysLegion\DI\CompiledContainerCache;
 use MonkeysLegion\Framework\Provider\ProviderScanner;
 use MonkeysLegion\Contracts\ServiceProviderInterface as ContractsInterface;
 use MonkeysLegion\Config\Providers\ServiceProviderInterface;
+use MonkeysLegion\Core\Attribute\Provider;
 use MonkeysLegion\Mlc\Config as MlcConfig;
 use Psr\Container\ContainerInterface;
 
@@ -40,6 +41,9 @@ final class Application
     public readonly string $environment;
 
     public readonly bool $debug;
+
+    /** @var array<class-string>|null Memoized composer extra providers */
+    private static ?array $extrasCache = null;
 
     private function __construct(
         public readonly string $basePath,
@@ -146,35 +150,87 @@ final class Application
         $allDefinitions = $appConfig($context);
         $builder->addDefinitions($allDefinitions);
 
-        // Scan for #[Provider] attributed providers in app/
+        // ── Scan for #[Provider] / ServiceProviderInterface ─────────
+        $scanner = new ProviderScanner();
         $appProvidersDir = $this->basePath . '/app/Providers';
+        $scannedClasses = [];
 
         if (is_dir($appProvidersDir)) {
-            $scanner = new ProviderScanner();
-            $scannedClasses = $scanner->scan($appProvidersDir, 'App\\Providers');
+            $scannedClasses = $scanner->scan($appProvidersDir, 'App\\Providers', attributeRequired: false);
+        }
 
-            foreach ($scannedClasses as $className) {
-                /** @var ContractsInterface $provider */
-                $provider = new $className();
+        $extras = self::registerExtras($this->basePath);
 
-                $providerContext = $provider->context();
+        // Deduplicate while preserving order
+        $allProviderClasses = array_values(array_unique([
+            ...$scannedClasses,
+            ...$extras,
+            ...$this->additionalProviders,
+        ]));
 
-                if ($providerContext !== 'all' && $providerContext !== $context) {
-                    continue;
+        /** @var object[] $activeProviders */
+        $activeProviders = [];
+
+        foreach ($allProviderClasses as $className) {
+            $reflection = new \ReflectionClass($className);
+
+            // Skip abstract classes — they cannot be instantiated
+            if ($reflection->isAbstract()) {
+                continue;
+            }
+
+            $isAppProvider = str_starts_with($className, 'App\\Providers');
+            $hasInterface = $reflection->implementsInterface(ContractsInterface::class)
+                         || $reflection->implementsInterface(ServiceProviderInterface::class);
+
+            if ($isAppProvider && !$hasInterface) {
+                throw new \RuntimeException("App provider [{$className}] MUST implement ServiceProviderInterface.");
+            }
+
+            // Determine context (Attribute priority, then Interface)
+            $providerContext = 'all';
+            $attrs = $reflection->getAttributes(Provider::class);
+
+            if (!empty($attrs)) {
+                $providerContext = $attrs[0]->newInstance()->context;
+            } elseif ($hasInterface) {
+                /** @var ContractsInterface|ServiceProviderInterface $instance */
+                $instance = $reflection->newInstanceWithoutConstructor();
+                try {
+                    $providerContext = $instance->context();
+                } catch (\Throwable) {
+                    $providerContext = 'all';
                 }
+            }
 
+            if ($providerContext !== 'all' && $providerContext !== $context) {
+                continue;
+            }
+
+            $provider = new $className();
+            $activeProviders[] = $provider;
+
+            // 1. Pure definitions (V2 modern flow)
+            if ($provider instanceof ContractsInterface || $provider instanceof ServiceProviderInterface) {
+                $builder->addDefinitions($provider->getDefinitions());
+            } elseif (method_exists($provider, 'getDefinitions')) {
+                /** @noinspection PhpUndefinedMethodInspection */
                 $builder->addDefinitions($provider->getDefinitions());
             }
         }
 
-        // Additional runtime providers
-        foreach ($this->additionalProviders as $providerClass) {
-            /** @var ContractsInterface $provider */
-            $provider = new $providerClass();
-            $builder->addDefinitions($provider->getDefinitions());
-        }
-
+        // ── Build Container and set Global Instance ──────────────────
         $this->container = $builder->build();
+        Container::setInstance($this->container);
+
+        // ── Imperative Registration Phase ────────────────────────────
+        // Some providers use a register() method to manually set services.
+        // We use the container's call() method to auto-resolve dependencies.
+        foreach ($activeProviders as $provider) {
+            if (method_exists($provider, 'register')) {
+                $this->container->call([$provider, 'register']);
+            }
+        }
 
         // ── Compile cache for production ─────────────────────────────
         // Collects all scalar/array definitions that survived the
@@ -191,6 +247,16 @@ final class Application
     public function getContainer(): Container
     {
         return $this->boot();
+    }
+
+    /**
+     * Reset the static extras cache (for testing only).
+     *
+     * @internal
+     */
+    public static function resetExtrasCache(): void
+    {
+        self::$extrasCache = null;
     }
 
     private function runHttp(Container $container): void
@@ -211,5 +277,87 @@ final class Application
 
         fwrite(STDERR, "MonkeysLegion CLI package not installed.\n");
         exit(1);
+    }
+
+    /**
+     * Discover providers declared in composer.json "extra.monkeyslegion.providers".
+     *
+     * Results are memoized to avoid re-parsing installed.json on every boot.
+     *
+     * @return array<class-string>
+     */
+    private static function registerExtras(string $root): array
+    {
+        if (self::$extrasCache !== null) {
+            return self::$extrasCache;
+        }
+
+        $installedJson = $root . '/vendor/composer/installed.json';
+
+        if (!file_exists($installedJson)) {
+            return self::$extrasCache = [];
+        }
+
+        $installedJsonContents = file_get_contents($installedJson);
+
+        if ($installedJsonContents === false) {
+            return self::$extrasCache = [];
+        }
+
+        $data = json_decode($installedJsonContents, true);
+
+        if (!is_array($data)) {
+            return self::$extrasCache = [];
+        }
+
+        // Handle both Composer 1.x (flat array) and 2.x (nested under 'packages')
+        $packages = [];
+
+        if (isset($data['packages']) && is_array($data['packages'])) {
+            $packages = $data['packages'];
+        } else {
+            foreach ($data as $installedSet) {
+                if (is_array($installedSet) && isset($installedSet['packages']) && is_array($installedSet['packages'])) {
+                    $packages = array_merge($packages, $installedSet['packages']);
+                }
+            }
+        }
+
+        $composerExtraProviders = [];
+
+        foreach ($packages as $package) {
+            if (!is_array($package)) {
+                continue;
+            }
+
+            if (isset($package['extra']['monkeyslegion']['providers']) && is_array($package['extra']['monkeyslegion']['providers'])) {
+                foreach ($package['extra']['monkeyslegion']['providers'] as $provider) {
+                    $composerExtraProviders[] = $provider;
+                }
+            }
+        }
+
+        // Filter: only keep providers that have #[Provider] attribute and deduplicate
+        $seen = [];
+        $filteredProviders = [];
+
+        foreach ($composerExtraProviders as $providerClass) {
+            if (isset($seen[$providerClass])) {
+                continue;
+            }
+
+            $seen[$providerClass] = true;
+
+            if (class_exists($providerClass)) {
+                $reflectionClass = new \ReflectionClass($providerClass);
+                $attributes = $reflectionClass->getAttributes(Provider::class);
+
+                if (!empty($attributes)) {
+                    $filteredProviders[] = $providerClass;
+                }
+            }
+        }
+
+        return self::$extrasCache = $filteredProviders;
     }
 }
