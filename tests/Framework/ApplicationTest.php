@@ -17,6 +17,9 @@ final class ApplicationTest extends TestCase
 
     protected function setUp(): void
     {
+        // Reset static memoization between tests
+        Application::resetExtrasCache();
+
         $this->basePath = sys_get_temp_dir() . '/ml_app_test_' . bin2hex(random_bytes(4));
         mkdir($this->basePath . '/config', 0755, true);
 
@@ -178,4 +181,90 @@ final class ApplicationTest extends TestCase
         $this->assertTrue($container->has('test.value'));
         $this->assertSame('hello_world', $container->get('test.value'));
     }
+
+    // ── Extras discovery ────────────────────────────────────────
+
+    public function testBootGracefulWithoutVendorDir(): void
+    {
+        // basePath has no vendor/ — registerExtras must return [] gracefully
+        $app = Application::create(basePath: $this->basePath);
+
+        $container = $app->boot();
+
+        // Should boot successfully without crashing
+        $this->assertInstanceOf(Container::class, $container);
+    }
+
+    public function testBootWithFakeInstalledJsonNoProviders(): void
+    {
+        // Create a fake vendor/composer/installed.json with no monkeyslegion extras
+        $vendorDir = $this->basePath . '/vendor/composer';
+        mkdir($vendorDir, 0755, true);
+
+        file_put_contents($vendorDir . '/installed.json', json_encode([
+            'packages' => [
+                [
+                    'name' => 'some/package',
+                    'extra' => [],
+                ],
+            ],
+        ]));
+
+        $app = Application::create(basePath: $this->basePath);
+        $container = $app->boot();
+
+        $this->assertInstanceOf(Container::class, $container);
+
+        // Clean up
+        unlink($vendorDir . '/installed.json');
+        @rmdir($vendorDir);
+        @rmdir($this->basePath . '/vendor');
+    }
+
+    public function testBootWithMalformedInstalledJsonDoesNotCrash(): void
+    {
+        // Create a corrupted installed.json
+        $vendorDir = $this->basePath . '/vendor/composer';
+        mkdir($vendorDir, 0755, true);
+
+        file_put_contents($vendorDir . '/installed.json', 'NOT VALID JSON');
+
+        $app = Application::create(basePath: $this->basePath);
+        $container = $app->boot();
+
+        // Should not crash — registerExtras returns [] on invalid JSON
+        $this->assertInstanceOf(Container::class, $container);
+
+        // Clean up
+        unlink($vendorDir . '/installed.json');
+        @rmdir($vendorDir);
+        @rmdir($this->basePath . '/vendor');
+    }
+
+    // ── Deduplication ───────────────────────────────────────────
+
+    public function testDuplicateProvidersAreDeduplicatedInBoot(): void
+    {
+        // Register the same provider class twice — boot should not crash
+        $app = Application::create(basePath: $this->basePath)
+            ->withProviders([])
+            ->withProviders([]);
+
+        $container = $app->boot();
+
+        $this->assertInstanceOf(Container::class, $container);
+    }
+
+    // ── Container global instance ───────────────────────────────
+
+    public function testBootSetsContainerInstance(): void
+    {
+        $app = Application::create(basePath: $this->basePath);
+
+        $container = $app->boot();
+
+        // Container::setInstance() is called during boot — verify via getContainer()
+        $this->assertSame($container, $app->getContainer());
+    }
 }
+

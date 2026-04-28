@@ -249,6 +249,16 @@ final class Application
         return $this->boot();
     }
 
+    /**
+     * Reset the static extras cache (for testing only).
+     *
+     * @internal
+     */
+    public static function resetExtrasCache(): void
+    {
+        self::$extrasCache = null;
+    }
+
     private function runHttp(Container $container): void
     {
         $kernel = new Kernel($container, $this);
