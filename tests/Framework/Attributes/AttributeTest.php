@@ -5,11 +5,11 @@ declare(strict_types=1);
 namespace MonkeysLegion\Tests\Framework\Attributes;
 
 use MonkeysLegion\Framework\Attributes\BootAfter;
-use MonkeysLegion\Framework\Attributes\Provider;
+use MonkeysLegion\Core\Attribute\Provider;
 use PHPUnit\Framework\TestCase;
 
 /**
- * @covers \MonkeysLegion\Framework\Attributes\Provider
+ * @covers \MonkeysLegion\Core\Attribute\Provider
  * @covers \MonkeysLegion\Framework\Attributes\BootAfter
  */
 final class AttributeTest extends TestCase

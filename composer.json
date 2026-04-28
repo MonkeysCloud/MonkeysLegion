@@ -7,32 +7,35 @@
     "prefer-stable": true,
     "require": {
         "php": "^8.4",
-        "monkeyscloud/monkeyslegion-core": "^2.0",
-        "monkeyscloud/monkeyslegion-di": "^2.0",
-        "monkeyscloud/monkeyslegion-http": "^2.0",
-        "monkeyscloud/monkeyslegion-router": "^2.1",
-        "monkeyscloud/monkeyslegion-entity": "^2.0",
-        "monkeyscloud/monkeyslegion-database": "^2.0",
-        "monkeyscloud/monkeyslegion-query": "^2.0",
-        "monkeyscloud/monkeyslegion-migration": "^2.0",
-        "monkeyscloud/monkeyslegion-auth": "^2.1",
-        "monkeyscloud/monkeyslegion-validation": "^2.0",
-        "monkeyscloud/monkeyslegion-cache": "^2.0",
-        "monkeyscloud/monkeyslegion-session": "^2.0",
-        "monkeyscloud/monkeyslegion-template": "^2.0",
-        "monkeyscloud/monkeyslegion-events": "^2.0",
-        "monkeyscloud/monkeyslegion-queue": "^2.0",
-        "monkeyscloud/monkeyslegion-schedule": "^1.1",
-        "monkeyscloud/monkeyslegion-mail": "^2.0",
-        "monkeyscloud/monkeyslegion-i18n": "^2.1",
-        "monkeyscloud/monkeyslegion-telemetry": "^2.0",
-        "monkeyscloud/monkeyslegion-logger": "^2.0",
-        "monkeyscloud/monkeyslegion-files": "^2.0",
-        "monkeyscloud/monkeyslegion-mlc": "^3.2",
-        "monkeyscloud/monkeyslegion-cli": "^2.0",
-        "monkeyscloud/monkeyslegion-dev-server": "^1.0",
         "monkeyscloud/monkeyslegion-apex": "^1.0",
-        "monkeyscloud/monkeyslegion-openapi": "^1.0"
+        "monkeyscloud/monkeyslegion-auth": "^2.1",
+        "monkeyscloud/monkeyslegion-cache": "^2.0",
+        "monkeyscloud/monkeyslegion-cli": "^2.0",
+        "monkeyscloud/monkeyslegion-contracts": "^2.0",
+        "monkeyscloud/monkeyslegion-core": "^2.0",
+        "monkeyscloud/monkeyslegion-database": "^2.0",
+        "monkeyscloud/monkeyslegion-dev-server": "^1.0",
+        "monkeyscloud/monkeyslegion-devtools": "^2.0",
+        "monkeyscloud/monkeyslegion-di": "^2.0",
+        "monkeyscloud/monkeyslegion-entity": "^2.0",
+        "monkeyscloud/monkeyslegion-events": "^2.0",
+        "monkeyscloud/monkeyslegion-files": "^2.0",
+        "monkeyscloud/monkeyslegion-http": "^2.0",
+        "monkeyscloud/monkeyslegion-i18n": "^2.1",
+        "monkeyscloud/monkeyslegion-logger": "^2.0",
+        "monkeyscloud/monkeyslegion-mail": "^2.0",
+        "monkeyscloud/monkeyslegion-migration": "^2.0",
+        "monkeyscloud/monkeyslegion-mlc": "^3.2",
+        "monkeyscloud/monkeyslegion-openapi": "^1.0",
+        "monkeyscloud/monkeyslegion-query": "^2.0",
+        "monkeyscloud/monkeyslegion-queue": "^2.0",
+        "monkeyscloud/monkeyslegion-router": "^2.1",
+        "monkeyscloud/monkeyslegion-schedule": "^1.1",
+        "monkeyscloud/monkeyslegion-session": "^2.0",
+        "monkeyscloud/monkeyslegion-sockets": "^1.1",
+        "monkeyscloud/monkeyslegion-telemetry": "^2.0",
+        "monkeyscloud/monkeyslegion-template": "^2.0",
+        "monkeyscloud/monkeyslegion-validation": "^2.0"
     },
     "require-dev": {
         "phpunit/phpunit": "^11.0",
@@ -43,7 +46,11 @@
             "MonkeysLegion\\": "src/"
         },
         "files": [
-            "bootstrap/env.php"
+            "bootstrap/env.php",
+            "src/stubs/redis.php"
+        ],
+        "exclude-from-classmap": [
+            "src/stubs/"
         ]
     },
     "autoload-dev": {

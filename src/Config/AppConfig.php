@@ -9,11 +9,13 @@ use MonkeysLegion\Config\Providers\AuthProvider;
 use MonkeysLegion\Config\Providers\CacheProvider;
 use MonkeysLegion\Config\Providers\CliProvider;
 use MonkeysLegion\Config\Providers\DatabaseProvider;
+use MonkeysLegion\Config\Providers\DevToolsProvider;
 use MonkeysLegion\Config\Providers\EventProvider;
 use MonkeysLegion\Config\Providers\FilesProvider;
 use MonkeysLegion\Config\Providers\HttpFactoryProvider;
 use MonkeysLegion\Config\Providers\I18nProvider;
 use MonkeysLegion\Config\Providers\LoggerProvider;
+use MonkeysLegion\Config\Providers\MailProvider;
 use MonkeysLegion\Config\Providers\MiddlewareProvider;
 use MonkeysLegion\Config\Providers\OpenApiProvider;
 use MonkeysLegion\Config\Providers\QueueProvider;
@@ -21,6 +23,7 @@ use MonkeysLegion\Config\Providers\RoutingProvider;
 use MonkeysLegion\Config\Providers\ScheduleProvider;
 use MonkeysLegion\Config\Providers\ServiceProviderInterface;
 use MonkeysLegion\Config\Providers\SessionProvider;
+use MonkeysLegion\Config\Providers\SocketsProvider;
 use MonkeysLegion\Config\Providers\TelemetryProvider;
 use MonkeysLegion\Config\Providers\TemplateProvider;
 use MonkeysLegion\Config\Providers\ValidationProvider;
@@ -49,9 +52,11 @@ final class AppConfig
         ValidationProvider::class,
         I18nProvider::class,
         QueueProvider::class,
+        MailProvider::class,
         FilesProvider::class,
         TelemetryProvider::class,
         ApexProvider::class,
+        SocketsProvider::class,
 
         // ─── HTTP-only ──────────────────────────────────────────────
         HttpFactoryProvider::class,
@@ -61,6 +66,7 @@ final class AppConfig
         MiddlewareProvider::class,
         TemplateProvider::class,
         OpenApiProvider::class,
+        DevToolsProvider::class,
 
         // ─── CLI-only ───────────────────────────────────────────────
         CliProvider::class,

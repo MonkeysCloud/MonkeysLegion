@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Framework\Provider;
 
+use MonkeysLegion\Contracts\ServiceProviderInterface as ContractsInterface;
 use MonkeysLegion\Config\Providers\ServiceProviderInterface;
 use MonkeysLegion\Core\Attribute\Provider;
 use MonkeysLegion\Framework\Attributes\BootAfter;
@@ -54,7 +55,8 @@ final class ProviderScanner
             }
 
             $reflection = new \ReflectionClass($className);
-            $hasInterface = $reflection->implementsInterface(ServiceProviderInterface::class);
+            $hasInterface = $reflection->implementsInterface(ContractsInterface::class)
+                         || $reflection->implementsInterface(ServiceProviderInterface::class);
             $attrs = $reflection->getAttributes(Provider::class);
             $hasAttr = !empty($attrs);
 
@@ -79,9 +81,9 @@ final class ProviderScanner
                 $priority = $providerAttr->priority;
                 $context  = $providerAttr->context;
             } elseif ($hasInterface) {
-                // If no attribute but has interface, we instantiation a temporary
+                // If no attribute but has interface, we instantiate a temporary
                 // instance to get its default context (since interface methods aren't static)
-                /** @var ServiceProviderInterface $instance */
+                /** @var ContractsInterface|ServiceProviderInterface $instance */
                 $instance = $reflection->newInstanceWithoutConstructor();
                 try {
                     $context = $instance->context();
@@ -121,7 +123,7 @@ final class ProviderScanner
      * the scanned set are placed first (in their priority order).
      *
      * @param array<array{class: string, priority: int, context: string, dependencies: list<string>}> $providers
-     * @return array<class-string<ServiceProviderInterface>>
+     * @return array<class-string>
      */
     private function topologicalSort(array $providers): array
     {

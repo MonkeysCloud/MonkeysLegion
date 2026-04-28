@@ -4,49 +4,19 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Config\Providers;
 
-use MonkeysLegion\DI\Container;
-
 /**
  * Contract for modular service-provider classes.
  *
- * Each provider encapsulates a domain of DI definitions (e.g. Auth, Database,
- * Queue) and declares the context in which it should be loaded.
+ * This interface extends the lightweight contracts interface so that both
+ * namespaces are interchangeable. External packages should implement
+ * {@see \MonkeysLegion\Contracts\ServiceProviderInterface} directly
+ * (from the `monkeyslegion-contracts` package) to avoid pulling in
+ * the full framework.
+ *
+ * @see \MonkeysLegion\Contracts\ServiceProviderInterface
  */
-interface ServiceProviderInterface
+interface ServiceProviderInterface extends \MonkeysLegion\Contracts\ServiceProviderInterface
 {
-    /**
-     * Return DI definitions for this domain.
-     *
-     * @return array<string, callable|object>
-     */
-    public function getDefinitions(): array;
-
-    /**
-     * Service IDs this provider registers (used for deferred loading).
-     *
-     * @return string[]
-     */
-    public function provides(): array;
-
-    /**
-     * Context in which this provider should be loaded.
-     *
-     * 'http' — only during HTTP requests
-     * 'cli'  — only during CLI execution
-     * 'all'  — always loaded
-     */
-    public function context(): string;
-
-    /**
-     * Whether this provider should be deferred (lazy-loaded).
-     */
-    public function isDeferred(): bool;
-
-    /**
-     * Post-build initialization hook.
-     *
-     * Called after the container has been fully built, allowing providers
-     * to perform setup that depends on other services being registered.
-     */
-    public function boot(Container $container): void;
+    // All methods inherited from the contracts interface.
+    // This interface exists for backward compatibility within the framework.
 }

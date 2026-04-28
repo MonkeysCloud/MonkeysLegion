@@ -10,6 +10,7 @@ use MonkeysLegion\DI\Container;
 use MonkeysLegion\DI\ContainerBuilder;
 use MonkeysLegion\DI\CompiledContainerCache;
 use MonkeysLegion\Framework\Provider\ProviderScanner;
+use MonkeysLegion\Contracts\ServiceProviderInterface as ContractsInterface;
 use MonkeysLegion\Config\Providers\ServiceProviderInterface;
 use MonkeysLegion\Core\Attribute\Provider;
 use MonkeysLegion\Mlc\Config as MlcConfig;
@@ -26,7 +27,7 @@ use Psr\Container\ContainerInterface;
  */
 final class Application
 {
-    /** @var array<class-string<ServiceProviderInterface>> */
+    /** @var array<class-string<ContractsInterface>> */
     private array $additionalProviders = [];
 
     /** @var array<class-string> */
@@ -54,7 +55,7 @@ final class Application
     }
 
     /**
-     * @param array<class-string<ServiceProviderInterface>> $providers
+     * @param array<class-string<ContractsInterface>> $providers
      */
     public function withProviders(array $providers): self
     {
@@ -157,14 +158,15 @@ final class Application
 
         $extras = $this->registerExtras($this->basePath);
         $allProviderClasses = [...$scannedClasses, ...$extras, ...$this->additionalProviders];
-        
+
         /** @var object[] $activeProviders */
         $activeProviders = [];
 
         foreach ($allProviderClasses as $className) {
             $reflection = new \ReflectionClass($className);
             $isAppProvider = str_starts_with($className, 'App\\Providers');
-            $hasInterface = $reflection->implementsInterface(ServiceProviderInterface::class);
+            $hasInterface = $reflection->implementsInterface(ContractsInterface::class)
+                         || $reflection->implementsInterface(ServiceProviderInterface::class);
 
             if ($isAppProvider && !$hasInterface) {
                 throw new \RuntimeException("App provider [{$className}] MUST implement ServiceProviderInterface.");
@@ -177,7 +179,7 @@ final class Application
             if (!empty($attrs)) {
                 $providerContext = $attrs[0]->newInstance()->context;
             } elseif ($hasInterface) {
-                /** @var ServiceProviderInterface $instance */
+                /** @var ContractsInterface|ServiceProviderInterface $instance */
                 $instance = $reflection->newInstanceWithoutConstructor();
                 $providerContext = $instance->context();
             }
@@ -190,7 +192,7 @@ final class Application
             $activeProviders[] = $provider;
 
             // 1. Pure definitions (V2 modern flow)
-            if ($provider instanceof ServiceProviderInterface) {
+            if ($provider instanceof ContractsInterface || $provider instanceof ServiceProviderInterface) {
                 $builder->addDefinitions($provider->getDefinitions());
             } elseif (method_exists($provider, 'getDefinitions')) {
                 /** @noinspection PhpUndefinedMethodInspection */
@@ -254,7 +256,7 @@ final class Application
         $installedJson = $root . '/vendor/composer/installed.json';
 
         if (!file_exists($installedJson)) {
-            throw new \RuntimeException("Composer metadata not found. Run 'composer install' first.");
+            return [];
         }
 
         $data = json_decode(file_get_contents($installedJson), true);
@@ -273,7 +275,7 @@ final class Application
                 }
             }
         }
-        // filer Providers that don't adapt #[Provider] attribute and Filter duplication
+        // Filter providers that don't have #[Provider] attribute and filter duplication
         $filteredProviders = [];
         foreach ($composerExtraProviders as $providerClass) {
             if (class_exists($providerClass)) {
