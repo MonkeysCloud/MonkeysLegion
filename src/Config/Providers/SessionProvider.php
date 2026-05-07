@@ -78,6 +78,7 @@ final class SessionProvider extends AbstractServiceProvider
                 return new SessionMiddleware(
                     manager: $c->get(SessionManager::class),
                     config: [
+                        'enabled'         => $mlc->getBool('session.enabled', true) ?? true,
                         'cookie_name'     => $mlc->getString('session.cookie.name', 'ml_session') ?? 'ml_session',
                         'cookie_lifetime' => $mlc->getInt('session.lifetime', 7200) ?? 7200,
                         'cookie_path'     => $mlc->getString('session.cookie.path', '/') ?? '/',
@@ -85,6 +86,7 @@ final class SessionProvider extends AbstractServiceProvider
                         'cookie_secure'   => $mlc->getBool('session.cookie.secure', true) ?? true,
                         'cookie_httponly'  => $mlc->getBool('session.cookie.httponly', true) ?? true,
                         'cookie_samesite' => $mlc->getString('session.cookie.same_site', 'Lax') ?? 'Lax',
+                        'except'          => $mlc->getArray('session.except', []) ?? [],
                     ],
                 );
             },
