@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Config;
 
-use MonkeysLegion\Env\Contracts\EnvBootstrapperInterface;
 use MonkeysLegion\Env\EnvManager;
 use MonkeysLegion\Env\Loaders\DotenvLoader;
 use MonkeysLegion\Env\Repositories\NativeEnvRepository;
@@ -29,11 +28,17 @@ final class ConfigLoader
      */
     public static function loadMlc(string $configDir): MlcConfig
     {
+        $envManager = new EnvManager(
+            loader: new DotenvLoader(),
+            repository: new NativeEnvRepository(),
+        );
+        $envManager->boot(base_path());
+
         if (!is_dir($configDir)) {
             return new MlcConfig([]);
         }
 
-        $env = $_ENV['APP_ENV'] ?? 'production';
+        $env = $envManager->get('APP_ENV', 'production');
         $isProduction = $env === 'production';
 
         // ── Try compiled cache in production ─────────────────────────
@@ -49,11 +54,6 @@ final class ConfigLoader
 
         // ── Bootstrap env + parser ───────────────────────────────────
         $rootPath = dirname($configDir);
-
-        $envManager = new EnvManager(
-            loader: new DotenvLoader(),
-            repository: new NativeEnvRepository(),
-        );
 
         $parser = new MlcParser(
             envBootstrapper: $envManager,
