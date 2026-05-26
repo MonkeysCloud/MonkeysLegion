@@ -7,7 +7,7 @@
     "prefer-stable": true,
     "require": {
         "php": "^8.4",
-        "monkeyscloud/monkeyslegion-apex": "^1.0",
+        "monkeyscloud/monkeyslegion-apex": "^1.1",
         "monkeyscloud/monkeyslegion-auth": "^2.1",
         "monkeyscloud/monkeyslegion-cache": "^2.0",
         "monkeyscloud/monkeyslegion-cli": "^2.0",
