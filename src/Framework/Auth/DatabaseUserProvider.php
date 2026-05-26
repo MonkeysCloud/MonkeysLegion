@@ -131,6 +131,10 @@ final class DatabaseUserProvider implements UserProviderInterface
             if ($reflection->hasProperty($column)) {
                 $prop = $reflection->getProperty($column);
                 $prop->setAccessible(true);
+
+                // Cast value to match the property's declared type
+                $value = $this->castValue($prop, $value);
+
                 $prop->setValue($user, $value);
             }
         }
@@ -140,5 +144,35 @@ final class DatabaseUserProvider implements UserProviderInterface
         }
 
         return $user;
+    }
+
+    /**
+     * Cast a raw database value to match the property's declared type.
+     *
+     * Prevents TypeError when assigning string values from PDO
+     * to typed properties (e.g. DateTimeImmutable, int, bool, array).
+     */
+    private function castValue(\ReflectionProperty $prop, mixed $value): mixed
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $type = $prop->getType();
+        if (!$type instanceof \ReflectionNamedType) {
+            return $value;
+        }
+
+        $typeName = $type->getName();
+
+        return match ($typeName) {
+            'DateTimeImmutable' => $value instanceof \DateTimeImmutable ? $value : new \DateTimeImmutable((string) $value),
+            'DateTime'          => $value instanceof \DateTime ? $value : new \DateTime((string) $value),
+            'int'               => (int) $value,
+            'float'             => (float) $value,
+            'bool'              => (bool) $value,
+            'array'             => is_string($value) ? (json_decode($value, true) ?? []) : (array) $value,
+            default             => $value,
+        };
     }
 }
