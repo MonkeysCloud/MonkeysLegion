@@ -13,7 +13,7 @@
         "monkeyscloud/monkeyslegion-cli": "^2.0",
         "monkeyscloud/monkeyslegion-contracts": "^2.0",
         "monkeyscloud/monkeyslegion-core": "^2.0",
-        "monkeyscloud/monkeyslegion-database": "^2.0",
+        "monkeyscloud/monkeyslegion-database": "^2.1",
         "monkeyscloud/monkeyslegion-dev-server": "^1.0",
         "monkeyscloud/monkeyslegion-devtools": "^2.0",
         "monkeyscloud/monkeyslegion-di": "^2.0",

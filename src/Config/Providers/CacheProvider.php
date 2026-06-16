@@ -34,13 +34,18 @@ final class CacheProvider extends AbstractServiceProvider
                     mkdir($cachePath, 0755, true);
                 }
 
-                return new FileStore(
+                /** @var CacheStoreInterface $store */
+                $store = new FileStore(
                     directory: $cachePath,
                     prefix: $mlc->getString('cache.prefix', '') ?? '',
                 );
+
+                return $store;
             },
 
-            CacheInterface::class => fn($c): CacheStoreInterface => $c->get(CacheStoreInterface::class),
+            CacheInterface::class => static function ($c): CacheInterface {
+                return $c->get(CacheStoreInterface::class);
+            },
 
             CacheManager::class => static function ($c): CacheManager {
                 /** @var MlcConfig $mlc */

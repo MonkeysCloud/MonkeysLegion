@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Config\Providers;
 
-use MonkeysLegion\Mlc\Config as MlcConfig;
+use MonkeysLegion\Cache\CacheManager;
+use MonkeysLegion\Cache\CacheStoreInterface;
+use MonkeysLegion\Collection\Cache\Bridge\FileCacheAdapter;
 use MonkeysLegion\Schedule\Contracts\ScheduleDriver;
 use MonkeysLegion\Schedule\Discovery\AttributeScanner;
 use MonkeysLegion\Schedule\Driver\DriverFactory;
@@ -29,20 +31,21 @@ final class ScheduleProvider extends AbstractServiceProvider
         return [
             ScheduleDriver::class => static function ($c): ScheduleDriver {
                 $factory = new DriverFactory(
-                    cache: $c->has(CacheInterface::class) ? $c->get(CacheInterface::class) : null,
+                    cache: new FileCacheAdapter(
+                        cacheStore: $c->get(CacheStoreInterface::class),
+                        cacheManager: $c->get(CacheManager::class),
+                    ),
                     redis: $c->has(\Redis::class) ? $c->get(\Redis::class) : null,
                 );
 
                 return $factory->make('cache');
             },
 
-            ScheduleManager::class => static function ($c): ScheduleManager {
-                return new ScheduleManager(
+            ScheduleManager::class => fn($c): ScheduleManager => new ScheduleManager(
                     cache: $c->has(CacheInterface::class) ? $c->get(CacheInterface::class) : null,
                     scanner: new AttributeScanner(),
                     driver: $c->get(ScheduleDriver::class),
-                );
-            },
+            ),
 
             Schedule::class => fn($c): Schedule => new Schedule(
                 manager: $c->get(ScheduleManager::class),
