@@ -12,7 +12,6 @@ use MonkeysLegion\Schedule\Discovery\AttributeScanner;
 use MonkeysLegion\Schedule\Driver\DriverFactory;
 use MonkeysLegion\Schedule\Schedule;
 use MonkeysLegion\Schedule\ScheduleManager;
-use Psr\SimpleCache\CacheInterface;
 
 /**
  * Task scheduler provider.
@@ -41,11 +40,20 @@ final class ScheduleProvider extends AbstractServiceProvider
                 return $factory->make('cache');
             },
 
-            ScheduleManager::class => fn($c): ScheduleManager => new ScheduleManager(
-                    cache: $c->has(CacheInterface::class) ? $c->get(CacheInterface::class) : null,
+            ScheduleManager::class => static function ($c): ScheduleManager {
+                $cache = $c->has(CacheStoreInterface::class)
+                    ? new FileCacheAdapter(
+                        cacheStore: $c->get(CacheStoreInterface::class),
+                        cacheManager: $c->get(CacheManager::class),
+                    )
+                    : null;
+
+                return new ScheduleManager(
+                    cache: $cache,
                     scanner: new AttributeScanner(),
                     driver: $c->get(ScheduleDriver::class),
-            ),
+                );
+            },
 
             Schedule::class => fn($c): Schedule => new Schedule(
                 manager: $c->get(ScheduleManager::class),
