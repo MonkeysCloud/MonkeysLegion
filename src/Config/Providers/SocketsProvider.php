@@ -5,11 +5,13 @@ declare(strict_types=1);
 namespace MonkeysLegion\Config\Providers;
 
 use MonkeysLegion\Mlc\Config as MlcConfig;
+use MonkeysLegion\Sockets\Broadcast\RedisBroadcaster;
 use MonkeysLegion\Sockets\Contracts\BroadcasterInterface;
 use MonkeysLegion\Sockets\Contracts\ConnectionRegistryInterface;
 use MonkeysLegion\Sockets\Contracts\DriverInterface;
 use MonkeysLegion\Sockets\Contracts\FormatterInterface;
 use MonkeysLegion\Sockets\Broadcast\UnixBroadcaster;
+use MonkeysLegion\Sockets\Contracts\RedisClientInterface;
 use MonkeysLegion\Sockets\Handshake\AllowedOriginsMiddleware;
 use MonkeysLegion\Sockets\Handshake\HandshakeNegotiator;
 use MonkeysLegion\Sockets\Handshake\MiddlewarePipeline;
@@ -17,11 +19,14 @@ use MonkeysLegion\Sockets\Handshake\ResponseFactory;
 use MonkeysLegion\Sockets\Protocol\JsonFormatter;
 use MonkeysLegion\Sockets\Protocol\MsgPackFormatter;
 use MonkeysLegion\Sockets\Registry\ConnectionRegistry;
+use MonkeysLegion\Sockets\Registry\PhpRedisClient;
+use MonkeysLegion\Sockets\Registry\RedisConnectionRegistry;
 use MonkeysLegion\Sockets\Server\WebSocketServer;
 use MonkeysLegion\Sockets\Service\DriverFactory;
 use MonkeysLegion\Sockets\Service\HeartbeatManager;
 use MonkeysLegion\Sockets\Service\RoomManager;
 use Psr\Container\ContainerInterface;
+use Redis;
 
 /**
  * WebSocket integration provider.
@@ -40,7 +45,19 @@ final class SocketsProvider extends AbstractServiceProvider
     {
         return [
             // ── Registry ────────────────────────────────────────────
-            ConnectionRegistryInterface::class => static fn(): ConnectionRegistryInterface => new ConnectionRegistry(),
+            ConnectionRegistryInterface::class => static function (ContainerInterface $c): ConnectionRegistryInterface {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+                $type = $mlc->getString('sockets.registry', 'local');
+                return match($type) {
+                    'redis' => new RedisConnectionRegistry(
+                        localRegistry: new ConnectionRegistry(),
+                        redis: $c->get(RedisClientInterface::class),
+                    ),
+                    'local' => new ConnectionRegistry(),
+                    default => throw new \InvalidArgumentException("Unsupported registry type: {$type}"),
+                };
+            },
 
             // ── Handshake Pipeline ──────────────────────────────────
             MiddlewarePipeline::class => static function (ContainerInterface $c): MiddlewarePipeline {
@@ -96,13 +113,34 @@ final class SocketsProvider extends AbstractServiceProvider
                 );
             },
 
+            // ── RedisAdapter ─────────────────────────────────────────
+            RedisClientInterface::class => static function (ContainerInterface $c): RedisClientInterface {
+                return new PhpRedisClient(
+                    redis: $c->get(Redis::class),
+                );
+            },
+
             // ── Broadcaster ─────────────────────────────────────────
             BroadcasterInterface::class => static function (ContainerInterface $c): BroadcasterInterface {
                 /** @var MlcConfig $mlc */
                 $mlc = $c->get(MlcConfig::class);
-                $socketPath = $mlc->getString('sockets.unix.path', '/tmp/ml_sockets.sock') ?? '/tmp/ml_sockets.sock';
+                $type = $mlc->getString('sockets.broadcaster', 'unix') ?? 'unix';
 
-                return new UnixBroadcaster($socketPath);
+                return match ($type) {
+                    'redis' => (static function () use ($c, $mlc) {
+                        $redis = $c->get(RedisClientInterface::class);
+                        $channel = $mlc->getString('sockets.redis.channel', 'ml_sockets:broadcast');
+                        return new RedisBroadcaster(
+                            redis: $redis,
+                            channel: $channel,
+                        );
+                    })(),
+                    'unix' => (static function () use ($mlc) {
+                        $socketPath = $mlc->getString('sockets.unix.path', '/tmp/ml_sockets.sock') ?? '/tmp/ml_sockets.sock';
+                        return new UnixBroadcaster($socketPath);
+                    })(),
+                    default => throw new \InvalidArgumentException("Unsupported broadcaster type: {$type}"),
+                };
             },
 
             // ── Room Manager ────────────────────────────────────────
