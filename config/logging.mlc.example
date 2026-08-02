@@ -5,5 +5,35 @@ logging {
     path      = "var/logs"
     level     = env("LOG_LEVEL", "debug")   # debug | info | notice | warning | error | critical
     max_files = 14
-    json      = false
+    json      = false                        # true → JsonFormatter, false → LineFormatter
+
+    # ── Handler sinks ────────────────────────────────────────────
+    # One or more log destinations. Each entry is a string shorthand or a
+    # map with a `type` key and per-handler options.
+    #
+    # Shorthands:  rotating_file | stream | stderr | stdout | error_log
+    #              console | syslog | null
+    #
+    # When omitted entirely, a single "rotating_file" handler is used
+    # (backward compatible).
+    #
+    # Examples:
+    #   handlers = ["rotating_file", "stderr"]            # file + container logs
+    #
+    #   handlers = [
+    #     "rotating_file",
+    #     { type = "stream", path = "php://stderr" },
+    #     { type = "error_log", message_type = 0 },
+    #   ]
+    #
+    # Per-handler options:
+    #   rotating_file: path, max_files, level
+    #   stream:         path (file or php:// URL), level
+    #   stderr / stdout: level
+    #   error_log:      message_type (0=system | 3=file | 4=SAPI), destination, level
+    #   console:        stream (php://stderr|stdout), colorize (bool), level
+    #   syslog:         ident, facility, level
+    #   null:           level
+    #
+    # handlers = ["rotating_file", "stderr"]
 }
