@@ -20,7 +20,7 @@
         "monkeyscloud/monkeyslegion-entity": "^2.0",
         "monkeyscloud/monkeyslegion-events": "^2.0",
         "monkeyscloud/monkeyslegion-files": "^2.0",
-        "monkeyscloud/monkeyslegion-http": "^2.0",
+        "monkeyscloud/monkeyslegion-http": "^2.2",
         "monkeyscloud/monkeyslegion-i18n": "^2.1",
         "monkeyscloud/monkeyslegion-logger": "^2.0",
         "monkeyscloud/monkeyslegion-mail": "^2.0",

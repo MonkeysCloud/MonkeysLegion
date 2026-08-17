@@ -15,7 +15,6 @@ use MonkeysLegion\Http\Middleware\SecurityHeadersMiddleware;
 use MonkeysLegion\Http\Middleware\TrustedProxyMiddleware;
 use MonkeysLegion\Http\MiddlewareDispatcher;
 use MonkeysLegion\Mlc\Config as MlcConfig;
-use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Log\LoggerInterface;
 use Psr\SimpleCache\CacheInterface;
 
