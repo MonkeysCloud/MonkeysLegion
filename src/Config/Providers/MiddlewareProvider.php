@@ -6,12 +6,18 @@ namespace MonkeysLegion\Config\Providers;
 
 use MonkeysLegion\Http\CoreRequestHandler;
 use MonkeysLegion\Http\Emitter\SapiEmitter;
+use MonkeysLegion\Http\Middleware\CompressionMiddleware;
+use MonkeysLegion\Http\Middleware\ConditionalMiddleware;
+use MonkeysLegion\Http\Middleware\CorrelationIdMiddleware;
 use MonkeysLegion\Http\Middleware\CorsMiddleware;
+use MonkeysLegion\Http\Middleware\CspMiddleware;
+use MonkeysLegion\Http\Middleware\DeprecationMiddleware;
 use MonkeysLegion\Http\Middleware\ErrorHandlerMiddleware;
 use MonkeysLegion\Http\Middleware\LoggingMiddleware;
 use MonkeysLegion\Http\Middleware\RateLimitMiddleware;
 use MonkeysLegion\Http\Middleware\RequestIdMiddleware;
 use MonkeysLegion\Http\Middleware\SecurityHeadersMiddleware;
+use MonkeysLegion\Http\Middleware\SignedUrlMiddleware;
 use MonkeysLegion\Http\Middleware\TrustedProxyMiddleware;
 use MonkeysLegion\Http\MiddlewareDispatcher;
 use MonkeysLegion\Mlc\Config as MlcConfig;
@@ -125,6 +131,60 @@ final class MiddlewareProvider extends AbstractServiceProvider
             LoggingMiddleware::class => static function ($c): LoggingMiddleware {
                 return new LoggingMiddleware(
                     logger: $c->has(LoggerInterface::class) ? $c->get(LoggerInterface::class) : null,
+                );
+            },
+
+            /* CSP (Content Security Policy) */
+            CspMiddleware::class => static function ($c): CspMiddleware {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                return new CspMiddleware(
+                    directives: $mlc->getArray('security.csp.directives', [
+                        'default-src' => ["'self'"],
+                        'script-src'  => ["'self'", "'unsafe-inline'"],
+                        'style-src'   => ["'self'", "'unsafe-inline'"],
+                        'img-src'     => ["'self'", 'data:', 'https:'],
+                    ]) ?? [],
+                    reportOnly: $mlc->getBool('security.csp.report_only', false) ?? false,
+                );
+            },
+
+            /* Gzip Compression */
+            CompressionMiddleware::class => static function ($c): CompressionMiddleware {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                return new CompressionMiddleware(
+                    minSize: $mlc->getInt('compression.min_size', 1024) ?? 1024,
+                    level: $mlc->getInt('compression.level', 6) ?? 6,
+                );
+            },
+
+            /* Conditional GET (ETag, Last-Modified) */
+            ConditionalMiddleware::class => fn(): ConditionalMiddleware => new ConditionalMiddleware(),
+
+            /* Correlation ID for distributed tracing */
+            CorrelationIdMiddleware::class => fn(): CorrelationIdMiddleware => new CorrelationIdMiddleware(),
+
+            /* API Deprecation headers */
+            DeprecationMiddleware::class => static function ($c): DeprecationMiddleware {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                return new DeprecationMiddleware(
+                    sunset: $mlc->getString('api.deprecation.sunset'),
+                    link: $mlc->getString('api.deprecation.link'),
+                );
+            },
+
+            /* Signed URL verification */
+            SignedUrlMiddleware::class => static function ($c): SignedUrlMiddleware {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                return new SignedUrlMiddleware(
+                    key: $mlc->getString('app.key', '') ?? '',
                 );
             },
 

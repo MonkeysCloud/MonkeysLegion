@@ -1,0 +1,24 @@
+# Webhooks Configuration
+#
+# Driver options: memory, database
+# memory   — for testing/development
+# database — PDO-backed, persists deliveries
+
+webhooks {
+    driver    = ${WEBHOOKS_DRIVER:memory}
+    secret    = ${WEBHOOK_SECRET:""}
+    algorithm = "sha256"
+    timeout   = 30  # HTTP timeout in seconds
+
+    # Retry settings for failed deliveries
+    retry {
+        max_attempts = 3
+        backoff      = [1, 5, 30]  # seconds between retries
+    }
+
+    # Database driver table names (when driver = database)
+    tables {
+        webhooks   = "webhooks"
+        deliveries = "webhook_deliveries"
+    }
+}

@@ -1,0 +1,17 @@
+# Feature Flags Configuration
+#
+# Driver options: memory, database, redis
+# memory  — fast, in-process (resets on restart)
+# database — PDO-backed, persists across restarts
+# redis   — Redis-backed, shared across instances
+
+feature_flags {
+    driver = ${FEATURE_FLAGS_DRIVER:memory}
+    table  = "feature_flags"
+
+    # Redis driver settings (when driver = redis)
+    redis {
+        prefix = "ml:flags:"
+        ttl    = 0  # 0 = no expiry
+    }
+}

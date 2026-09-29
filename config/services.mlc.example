@@ -1,0 +1,46 @@
+# OAuth / Social Login Configuration
+#
+# Configure credentials for each supported provider.
+# Supported: google, github, gitlab, facebook, x, microsoft
+
+services {
+    oauth {
+        google {
+            client_id     = ${GOOGLE_CLIENT_ID:""}
+            client_secret = ${GOOGLE_CLIENT_SECRET:""}
+            redirect_uri  = ${APP_URL:http://localhost:8000}/oauth/callback/google
+            scopes        = ["openid", "email", "profile"]
+        }
+        github {
+            client_id     = ${GITHUB_CLIENT_ID:""}
+            client_secret = ${GITHUB_CLIENT_SECRET:""}
+            redirect_uri  = ${APP_URL:http://localhost:8000}/oauth/callback/github
+            scopes        = ["user:email"]
+        }
+        gitlab {
+            client_id     = ${GITLAB_CLIENT_ID:""}
+            client_secret = ${GITLAB_CLIENT_SECRET:""}
+            redirect_uri  = ${APP_URL:http://localhost:8000}/oauth/callback/gitlab
+            scopes        = ["read_user"]
+        }
+        facebook {
+            client_id     = ${FACEBOOK_CLIENT_ID:""}
+            client_secret = ${FACEBOOK_CLIENT_SECRET:""}
+            redirect_uri  = ${APP_URL:http://localhost:8000}/oauth/callback/facebook
+            scopes        = ["email", "public_profile"]
+        }
+        x {
+            client_id     = ${X_CLIENT_ID:""}
+            client_secret = ${X_CLIENT_SECRET:""}
+            redirect_uri  = ${APP_URL:http://localhost:8000}/oauth/callback/x
+            scopes        = ["users.read", "tweet.read"]
+        }
+        microsoft {
+            client_id     = ${MICROSOFT_CLIENT_ID:""}
+            client_secret = ${MICROSOFT_CLIENT_SECRET:""}
+            redirect_uri  = ${APP_URL:http://localhost:8000}/oauth/callback/microsoft
+            scopes        = ["openid", "email", "profile"]
+            tenant        = "common"
+        }
+    }
+}

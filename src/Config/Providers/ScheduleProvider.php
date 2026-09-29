@@ -10,6 +10,7 @@ use MonkeysLegion\Collection\Cache\Bridge\FileCacheAdapter;
 use MonkeysLegion\Schedule\Contracts\ScheduleDriver;
 use MonkeysLegion\Schedule\Discovery\AttributeScanner;
 use MonkeysLegion\Schedule\Driver\DriverFactory;
+use MonkeysLegion\Schedule\Monitor\ScheduleMonitor;
 use MonkeysLegion\Schedule\Schedule;
 use MonkeysLegion\Schedule\ScheduleManager;
 
@@ -56,6 +57,11 @@ final class ScheduleProvider extends AbstractServiceProvider
             },
 
             Schedule::class => fn($c): Schedule => new Schedule(
+                manager: $c->get(ScheduleManager::class),
+            ),
+
+            /* Schedule health monitor */
+            ScheduleMonitor::class => fn($c): ScheduleMonitor => new ScheduleMonitor(
                 manager: $c->get(ScheduleManager::class),
             ),
         ];

@@ -1,0 +1,23 @@
+# Notifications Configuration
+#
+# Channels: mail, slack, teams, webhook, database
+# Only enabled channels will be registered in the DI container.
+
+notifications {
+    channels = ["mail"]
+
+    # Slack channel settings
+    slack {
+        webhook_url = ${SLACK_WEBHOOK_URL:""}
+    }
+
+    # Microsoft Teams channel settings
+    teams {
+        webhook_url = ${TEAMS_WEBHOOK_URL:""}
+    }
+
+    # Database channel settings
+    database {
+        table = "notifications"
+    }
+}

@@ -1,0 +1,17 @@
+# Markdown Configuration
+#
+# The markdown renderer is pure PHP with no external dependencies.
+# This config controls optional features.
+
+markdown {
+    # Enable/disable extensions
+    extensions {
+        strikethrough = true
+        task_lists    = true
+        tables        = true
+    }
+
+    # Security
+    escape_html   = true   # Escape raw HTML in code blocks
+    allow_scripts = false  # Never allow <script> tags
+}

@@ -20,6 +20,7 @@ use MonkeysLegion\Auth\Service\JwtService;
 use MonkeysLegion\Auth\Service\PasswordHasher;
 use MonkeysLegion\Auth\Storage\InMemoryTokenStorage;
 use MonkeysLegion\Auth\TwoFactor\TotpProvider;
+use MonkeysLegion\Auth\OAuth\OAuthManager;
 use MonkeysLegion\Database\Contracts\ConnectionInterface;
 use MonkeysLegion\Framework\Auth\DatabaseUserProvider;
 use MonkeysLegion\Mlc\Config as MlcConfig;
@@ -88,6 +89,31 @@ final class AuthProvider extends AbstractServiceProvider
 
             /* Two-Factor */
             TotpProvider::class => fn(): TotpProvider => new TotpProvider(),
+
+            /* OAuth Manager (Socialite) */
+            OAuthManager::class => static function ($c): OAuthManager {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                $manager = new OAuthManager();
+
+                // Register enabled providers from config/services.mlc
+                $providers = $mlc->getArray('services.oauth', []) ?? [];
+                foreach (array_keys($providers) as $name) {
+                    $config = $mlc->getArray("services.oauth.{$name}", []) ?? [];
+                    $clientId = $config['client_id'] ?? '';
+                    $clientSecret = $config['client_secret'] ?? '';
+                    $redirectUri = $config['redirect_uri'] ?? '';
+
+                    if ($clientId === '' || $clientSecret === '') {
+                        continue; // Skip unconfigured providers
+                    }
+
+                    $manager->register($name, $clientId, $clientSecret, $redirectUri);
+                }
+
+                return $manager;
+            },
 
             /* Core Auth Service */
             AuthService::class => static function ($c): AuthService {

@@ -1,0 +1,21 @@
+# Search Configuration
+#
+# Driver options: null, database, meilisearch
+# null        — no search (returns empty results)
+# database    — PDO full-text search
+# meilisearch — Meilisearch server integration
+
+search {
+    driver = ${SEARCH_DRIVER:null}
+
+    # Meilisearch settings (when driver = meilisearch)
+    meilisearch {
+        host = ${MEILISEARCH_HOST:http://localhost:7700}
+        key  = ${MEILISEARCH_KEY:""}
+    }
+
+    # Database search settings (when driver = database)
+    database {
+        mode = "fulltext"  # fulltext | like
+    }
+}
