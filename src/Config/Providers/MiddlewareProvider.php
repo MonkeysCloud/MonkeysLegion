@@ -78,15 +78,24 @@ final class MiddlewareProvider extends AbstractServiceProvider
                 /** @var MlcConfig $mlc */
                 $mlc = $c->get(MlcConfig::class);
 
-                $preset = $mlc->getString('security.headers.preset', 'strict') ?? 'strict';
+                // Use 'api' preset by default — it includes security headers WITHOUT CSP.
+                // CSP is handled separately by CspMiddleware which reads security.csp.directives.
+                // 'strict' preset includes a CSP header that conflicts with CspMiddleware.
+                $preset = $mlc->getString('security.headers.preset', 'api') ?? 'api';
+                $overrides = array_filter([
+                    'X-Frame-Options'         => $mlc->getString('security.headers.frame_options'),
+                    'Referrer-Policy'         => $mlc->getString('security.headers.referrer_policy'),
+                    'Strict-Transport-Security' => $mlc->getString('security.headers.hsts_max_age')
+                        ? 'max-age=' . $mlc->getString('security.headers.hsts_max_age')
+                          . ($mlc->getBool('security.headers.hsts_subdomains', false) ? '; includeSubDomains' : '')
+                          . ($mlc->getBool('security.headers.hsts_preload', false) ? '; preload' : '')
+                        : null,
+                    'Permissions-Policy'      => $mlc->getString('security.headers.permissions_policy'),
+                ]);
 
                 return new SecurityHeadersMiddleware(
                     preset: $preset,
-                    overrides: array_filter([
-                        'X-Frame-Options'         => $mlc->getString('security.headers.frame_options'),
-                        'Referrer-Policy'         => $mlc->getString('security.headers.referrer_policy'),
-                        // CSP is handled by CspMiddleware which reads security.csp.directives
-                    ]),
+                    overrides: $overrides,
                 );
             },
 
@@ -153,13 +162,33 @@ final class MiddlewareProvider extends AbstractServiceProvider
                 /** @var MlcConfig $mlc */
                 $mlc = $c->get(MlcConfig::class);
 
+                // Read directives from config and normalise:
+                // - Convert underscore keys to hyphen keys (MLC keys cannot contain hyphens)
+                // - Convert array values to space-separated strings
+                $rawDirectives = $mlc->getArray('security.csp.directives', []) ?? [];
+                $directives = [];
+                foreach ($rawDirectives as $key => $value) {
+                    $hyphenKey = str_replace('_', '-', $key);
+                    $directives[$hyphenKey] = is_array($value) ? implode(' ', $value) : (string) $value;
+                }
+
+                // Fallback to secure defaults if config is empty
+                if ($directives === []) {
+                    $directives = [
+                        'default-src'     => "'self'",
+                        'script-src'      => "'self' {nonce} 'strict-dynamic'",
+                        'style-src'       => "'self' 'unsafe-inline' {nonce}",
+                        'img-src'         => "'self' data:",
+                        'font-src'        => "'self'",
+                        'object-src'      => "'none'",
+                        'base-uri'        => "'self'",
+                        'frame-ancestors' => "'none'",
+                        'form-action'     => "'self'",
+                    ];
+                }
+
                 return new CspMiddleware(
-                    directives: $mlc->getArray('security.csp.directives', [
-                        'default-src' => ["'self'"],
-                        'script-src'  => ["'self'", "'unsafe-inline'"],
-                        'style-src'   => ["'self'", "'unsafe-inline'"],
-                        'img-src'     => ["'self'", 'data:', 'https:'],
-                    ]) ?? [],
+                    directives: $directives,
                     reportOnly: $mlc->getBool('security.csp.report_only', false) ?? false,
                 );
             },
