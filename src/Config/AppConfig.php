@@ -15,6 +15,7 @@ use MonkeysLegion\Config\Providers\FeatureFlagsProvider;
 use MonkeysLegion\Config\Providers\FilesProvider;
 use MonkeysLegion\Config\Providers\HttpFactoryProvider;
 use MonkeysLegion\Config\Providers\I18nProvider;
+use MonkeysLegion\Config\Providers\InertiaProvider;
 use MonkeysLegion\Config\Providers\LoggerProvider;
 use MonkeysLegion\Config\Providers\MailProvider;
 use MonkeysLegion\Config\Providers\MarkdownProvider;
@@ -31,6 +32,7 @@ use MonkeysLegion\Config\Providers\SocketsProvider;
 use MonkeysLegion\Config\Providers\TelemetryProvider;
 use MonkeysLegion\Config\Providers\TemplateProvider;
 use MonkeysLegion\Config\Providers\ValidationProvider;
+use MonkeysLegion\Config\Providers\ViteProvider;
 use MonkeysLegion\Config\Providers\WebhooksProvider;
 
 /**
@@ -77,6 +79,8 @@ final class AppConfig
         TemplateProvider::class,
         OpenApiProvider::class,
         DevToolsProvider::class,
+        InertiaProvider::class,
+        ViteProvider::class,
 
         // ─── CLI-only ───────────────────────────────────────────────
         CliProvider::class,

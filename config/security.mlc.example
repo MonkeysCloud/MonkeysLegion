@@ -6,8 +6,21 @@ security {
     referrer_policy    = "strict-origin-when-cross-origin"
     permissions_policy = "camera=(), microphone=(), geolocation=()"
 
-    # Content Security Policy (set empty to disable)
-    csp = ""
+    # Content Security Policy (applied by CspMiddleware)
+    csp {
+        report_only = false
+        directives {
+            default-src = ["'self'"]
+            script-src  = ["'self'", "'unsafe-inline'", "'unsafe-eval'"]
+            style-src   = ["'self'", "'unsafe-inline'"]
+            img-src     = ["'self'", "data:", "https:"]
+            font-src    = ["'self'", "https:"]
+            connect-src = ["'self'"]
+            frame-ancestors = ["'none'"]
+            base-uri    = ["'self'"]
+            form-action = ["'self'"]
+        }
+    }
 
     # HSTS (Strict-Transport-Security)
     hsts {
