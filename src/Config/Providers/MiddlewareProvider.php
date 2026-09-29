@@ -19,6 +19,7 @@ use MonkeysLegion\Http\Middleware\RequestIdMiddleware;
 use MonkeysLegion\Http\Middleware\SecurityHeadersMiddleware;
 use MonkeysLegion\Http\Middleware\SignedUrlMiddleware;
 use MonkeysLegion\Http\Middleware\TrustedProxyMiddleware;
+use MonkeysLegion\Framework\Middleware\MaintenanceModeMiddleware;
 use MonkeysLegion\Http\MiddlewareDispatcher;
 use MonkeysLegion\Mlc\Config as MlcConfig;
 use Psr\Log\LoggerInterface;
@@ -59,19 +60,32 @@ final class MiddlewareProvider extends AbstractServiceProvider
                 return new CoreRequestHandler($routerHandler);
             },
 
+            /* Maintenance Mode */
+            MaintenanceModeMiddleware::class => static function ($c): MaintenanceModeMiddleware {
+                /** @var MlcConfig $mlc */
+                $mlc = $c->get(MlcConfig::class);
+
+                return new MaintenanceModeMiddleware(
+                    responseFactory: $c->get(\Psr\Http\Message\ResponseFactoryInterface::class),
+                    storagePath: dirname(__DIR__, 4) . '/var',
+                    allowedIps: $mlc->getArray('maintenance.allowed_ips', []) ?? [],
+                    secret: $mlc->getString('maintenance.secret', '') ?? '',
+                );
+            },
+
             /* Security Headers (HTTP package built-in) */
             SecurityHeadersMiddleware::class => static function ($c): SecurityHeadersMiddleware {
                 /** @var MlcConfig $mlc */
                 $mlc = $c->get(MlcConfig::class);
 
-                $preset = $mlc->getString('security.preset', 'strict') ?? 'strict';
+                $preset = $mlc->getString('security.headers.preset', 'strict') ?? 'strict';
 
                 return new SecurityHeadersMiddleware(
                     preset: $preset,
                     overrides: array_filter([
-                        'X-Frame-Options'         => $mlc->getString('security.frame_options'),
-                        'Referrer-Policy'         => $mlc->getString('security.referrer_policy'),
-                        'Content-Security-Policy' => $mlc->getString('security.csp'),
+                        'X-Frame-Options'         => $mlc->getString('security.headers.frame_options'),
+                        'Referrer-Policy'         => $mlc->getString('security.headers.referrer_policy'),
+                        // CSP is handled by CspMiddleware which reads security.csp.directives
                     ]),
                 );
             },
@@ -157,7 +171,7 @@ final class MiddlewareProvider extends AbstractServiceProvider
 
                 return new CompressionMiddleware(
                     minSize: $mlc->getInt('compression.min_size', 1024) ?? 1024,
-                    level: $mlc->getInt('compression.level', 6) ?? 6,
+                    gzipLevel: $mlc->getInt('compression.level', 6) ?? 6,
                 );
             },
 
@@ -168,15 +182,7 @@ final class MiddlewareProvider extends AbstractServiceProvider
             CorrelationIdMiddleware::class => fn(): CorrelationIdMiddleware => new CorrelationIdMiddleware(),
 
             /* API Deprecation headers */
-            DeprecationMiddleware::class => static function ($c): DeprecationMiddleware {
-                /** @var MlcConfig $mlc */
-                $mlc = $c->get(MlcConfig::class);
-
-                return new DeprecationMiddleware(
-                    sunset: $mlc->getString('api.deprecation.sunset'),
-                    link: $mlc->getString('api.deprecation.link'),
-                );
-            },
+            DeprecationMiddleware::class => fn(): DeprecationMiddleware => new DeprecationMiddleware(),
 
             /* Signed URL verification */
             SignedUrlMiddleware::class => static function ($c): SignedUrlMiddleware {
@@ -184,7 +190,8 @@ final class MiddlewareProvider extends AbstractServiceProvider
                 $mlc = $c->get(MlcConfig::class);
 
                 return new SignedUrlMiddleware(
-                    key: $mlc->getString('app.key', '') ?? '',
+                    generator: $c->get(\MonkeysLegion\Router\SignedUrlGenerator::class),
+                    protectedPatterns: $mlc->getArray('security.signed_urls.protected', []) ?? [],
                 );
             },
 
